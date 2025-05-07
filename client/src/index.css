@@ -114,25 +114,26 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
-  
+
   /* Global scrollbar styling as a fallback */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
-  
+
   ::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   ::-webkit-scrollbar-thumb {
     background-color: var(--ring);
     border-radius: var(--radius-sm);
   }
-  
+
   ::-webkit-scrollbar-thumb:hover {
     background-color: var(--primary);
   }
@@ -140,31 +141,48 @@
 
 /* Custom Scrollbar Styles */
 @layer utilities {
+
   /* Direct class that can be added to any element */
   .custom-scrollbar {
     scrollbar-width: thin !important;
     scrollbar-color: var(--sidebar-ring) transparent !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
+    scrollbar-gutter: stable !important;
+    -webkit-overflow-scrolling: touch !important;
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px !important;
     height: 6px !important;
+    display: block !important;
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent !important;
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background-color: var(--sidebar-ring) !important;
     border-radius: var(--radius-sm) !important;
     border: none !important;
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background-color: var(--sidebar-primary) !important;
+  }
+}
+
+/* macOS specific scrollbar styles */
+@media screen and (-webkit-min-device-pixel-ratio:0) {
+  .custom-scrollbar {
+    overflow-y: scroll !important;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--sidebar-ring) !important;
+    border-radius: var(--radius-sm) !important;
+    border: none !important;
   }
 }
 
@@ -176,28 +194,24 @@
   width: 6px !important;
   height: 6px !important;
   background-color: transparent !important;
+  display: block !important;
 }
 
-[data-sidebar="content"]::-webkit-scrollbar-track,
-[data-slot="sidebar-content"]::-webkit-scrollbar-track,
-[data-sidebar="sidebar"]::-webkit-scrollbar-track,
-[data-slot="sidebar-inner"]::-webkit-scrollbar-track {
-  background: transparent !important;
-  border-radius: var(--radius-sm) !important;
+[data-sidebar="content"],
+[data-slot="sidebar-content"],
+[data-sidebar="sidebar"],
+[data-slot="sidebar-inner"] {
+  scrollbar-gutter: stable !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
-[data-sidebar="content"]::-webkit-scrollbar-thumb,
-[data-slot="sidebar-content"]::-webkit-scrollbar-thumb,
-[data-sidebar="sidebar"]::-webkit-scrollbar-thumb,
-[data-slot="sidebar-inner"]::-webkit-scrollbar-thumb {
-  background-color: var(--sidebar-ring) !important;
-  border-radius: var(--radius-sm) !important;
-  border: none !important;
-}
+/* macOS specific scrollbar styles for sidebar */
+@media screen and (-webkit-min-device-pixel-ratio:0) {
 
-[data-sidebar="content"]::-webkit-scrollbar-thumb:hover,
-[data-slot="sidebar-content"]::-webkit-scrollbar-thumb:hover,
-[data-sidebar="sidebar"]::-webkit-scrollbar-thumb:hover,
-[data-slot="sidebar-inner"]::-webkit-scrollbar-thumb:hover {
-  background-color: var(--sidebar-primary) !important;
+  [data-sidebar="content"],
+  [data-slot="sidebar-content"],
+  [data-sidebar="sidebar"],
+  [data-slot="sidebar-inner"] {
+    overflow-y: scroll !important;
+  }
 }
