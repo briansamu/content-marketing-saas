@@ -25,27 +25,31 @@ interface UserAttributes {
 
 // Interface for User creation attributes
 interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'created_at' | 'updated_at' | 'last_login' | 'reset_token' | 'reset_token_expires' | 'verification_token' | 'email_verified' | 'avatar'> {
-  password: string; // Plain password for creation only
+  password?: string; // Plain password for creation only
 }
 
 // User model with instance methods
 class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
-  public id!: number;
-  public email!: string;
-  public password_hash!: string;
-  public first_name!: string | null;
-  public last_name!: string | null;
-  public role!: string;
-  public company_id!: number | null;
-  public last_login!: Date | null;
-  public status!: string;
-  public reset_token!: string | null;
-  public reset_token_expires!: Date | null;
-  public verification_token!: string | null;
-  public email_verified!: boolean;
-  public avatar!: string | null;
-  public created_at!: Date;
-  public updated_at!: Date;
+  // Sequelize will define these fields, so we only declare them for TypeScript
+  declare id: number;
+  declare email: string;
+  declare password_hash: string;
+  declare first_name: string | null;
+  declare last_name: string | null;
+  declare role: string;
+  declare company_id: number | null;
+  declare last_login: Date | null;
+  declare status: string;
+  declare reset_token: string | null;
+  declare reset_token_expires: Date | null;
+  declare verification_token: string | null;
+  declare email_verified: boolean;
+  declare avatar: string | null;
+  declare created_at: Date;
+  declare updated_at: Date;
+
+  // Add this field to correctly handle password in hooks
+  declare password?: string;
 
   // Static method to create user with password
   static async createWithPassword(userData: Omit<UserCreationAttributes, 'password_hash'> & { password: string }): Promise<User> {
@@ -159,22 +163,7 @@ User.init({
   }
 }, {
   hooks: {
-    beforeCreate: async (user: User & { password?: string }) => {
-      if (user.password) {
-        const salt = await bcrypt.genSalt(10);
-        user.password_hash = await bcrypt.hash(user.password, salt);
-        // Don't delete user.password here, as it may cause issues
-      } else {
-        throw new Error('Password is required for user creation');
-      }
-    },
-    beforeUpdate: async (user: User & { password?: string }) => {
-      if (user.password) {
-        const salt = await bcrypt.genSalt(10);
-        user.password_hash = await bcrypt.hash(user.password, salt);
-        // Don't delete user.password here, as it may cause issues
-      }
-    }
+    // No password logic needed here; handled in createWithPassword
   },
   sequelize,
   modelName: 'User',
