@@ -24,6 +24,9 @@ const TrendingTopic = sequelize.define('TrendingTopic', {
   relevance_score: {
     type: DataTypes.FLOAT
   },
+  url: {
+    type: DataTypes.STRING(255)
+  },
   published_at: {
     type: DataTypes.DATE
   }
