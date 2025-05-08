@@ -9,6 +9,10 @@ export interface User {
   avatar?: string;
   first_name?: string;
   last_name?: string;
+  company?: {
+    name: string;
+    [key: string]: unknown;
+  };
 }
 
 interface RegisterCredentials {
@@ -100,6 +104,7 @@ export const fetchCurrentUser = createAsyncThunk(
         avatar: data.user.avatar,
         first_name: data.user.first_name,
         last_name: data.user.last_name,
+        company: data.user.company,
       };
 
       return { user: formattedUser };
