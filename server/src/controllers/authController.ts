@@ -7,6 +7,12 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { Op, QueryTypes } from 'sequelize';
 
+// Helper function to get Gravatar URL
+const getGravatarUrl = (email: string): string => {
+  const hash = crypto.createHash('md5').update(email.toLowerCase().trim()).digest('hex');
+  return `https://www.gravatar.com/avatar/${hash}?d=mp&s=200`;
+};
+
 // Login with email/password
 export const login = (req: Request, res: Response) => {
   passport.authenticate('local', { session: false }, (err: Error, user: any, info: any) => {
@@ -254,15 +260,55 @@ export const getCurrentUser = async (req: Request, res: Response) => {
       });
     }
 
-    // Get user with company information
-    const userWithCompany = await User.findByPk(user.id, {
-      include: [{ model: Company }]
-    });
+    // Get user from database directly to avoid model issues
+    const [rows]: any = await sequelize.query(
+      'SELECT * FROM users WHERE id = :id LIMIT 1',
+      {
+        replacements: { id: user.id },
+        raw: true
+      }
+    );
+
+    const userData = rows && rows.length > 0 ? rows[0] : null;
+
+    if (!userData) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Add Gravatar if no avatar is set
+    if (!userData.avatar) {
+      userData.avatar = getGravatarUrl(userData.email);
+    }
+
+    // Remove sensitive data
+    delete userData.password_hash;
+    delete userData.reset_token;
+    delete userData.reset_token_expires;
+    delete userData.verification_token;
+
+    // Get company data if available
+    let company = null;
+    if (userData.company_id) {
+      const [companyRows]: any = await sequelize.query(
+        'SELECT * FROM companies WHERE id = :id LIMIT 1',
+        {
+          replacements: { id: userData.company_id },
+          raw: true
+        }
+      );
+      company = companyRows && companyRows.length > 0 ? companyRows[0] : null;
+    }
 
     return res.status(200).json({
       success: true,
       message: 'User retrieved successfully',
-      data: userWithCompany
+      user: {
+        ...userData,
+        company
+      }
     });
   } catch (error) {
     console.error('Get current user error:', error);

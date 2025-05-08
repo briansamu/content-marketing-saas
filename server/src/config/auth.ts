@@ -6,11 +6,18 @@ import jwt from 'jsonwebtoken';
 import { User } from '../models';
 import bcrypt from 'bcrypt';
 import sequelize from '../config/database';
+import crypto from 'crypto';
 
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'development_jwt_secret';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+
+// Helper function to get Gravatar URL
+const getGravatarUrl = (email: string): string => {
+  const hash = crypto.createHash('md5').update(email.toLowerCase().trim()).digest('hex');
+  return `https://www.gravatar.com/avatar/${hash}?d=mp&s=200`;
+};
 
 // Configure local strategy for username/password authentication
 passport.use(new LocalStrategy(
@@ -55,9 +62,22 @@ passport.use(new LocalStrategy(
         }
       );
 
-      // Convert raw database result to User model instance
-      const userModel = User.build(user, { isNewRecord: false });
-      return done(null, userModel);
+      // Process user data before returning
+      // Add avatar URL if not present
+      if (!user.avatar) {
+        user.avatar = getGravatarUrl(user.email);
+      }
+
+      // Create a plain object with processed data
+      const processedUser = {
+        ...user,
+        toJSON: () => {
+          const { password_hash, reset_token, reset_token_expires, verification_token, ...userWithoutSensitiveData } = user;
+          return userWithoutSensitiveData;
+        }
+      };
+
+      return done(null, processedUser);
     } catch (error) {
       return done(error);
     }
@@ -72,7 +92,16 @@ passport.use(new JwtStrategy(
   },
   async (payload, done) => {
     try {
-      const user = await User.findByPk(payload.id);
+      // Query the user directly from database to avoid model issues
+      const [rows]: any = await sequelize.query(
+        'SELECT * FROM users WHERE id = :id LIMIT 1',
+        {
+          replacements: { id: payload.id },
+          raw: true
+        }
+      );
+
+      const user = rows && rows.length > 0 ? rows[0] : null;
 
       if (!user) {
         return done(null, false);
@@ -82,7 +111,26 @@ passport.use(new JwtStrategy(
         return done(null, false);
       }
 
-      return done(null, user);
+      // Add avatar URL if not present
+      if (!user.avatar) {
+        user.avatar = getGravatarUrl(user.email);
+      }
+
+      // Create plain object with processed data
+      const processedUser = {
+        ...user,
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        company_id: user.company_id,
+        avatar: user.avatar || getGravatarUrl(user.email),
+        toJSON: () => {
+          const { password_hash, reset_token, reset_token_expires, verification_token, ...userWithoutSensitiveData } = user;
+          return userWithoutSensitiveData;
+        }
+      };
+
+      return done(null, processedUser);
     } catch (error) {
       return done(error, false);
     }

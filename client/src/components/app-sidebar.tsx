@@ -29,13 +29,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "./ui/sidebar"
+import { useAppSelector } from "../store/hooks"
 
 const data = {
-  user: {
-    name: "Brian Samu",
-    email: "brian@briansamu.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
   navMain: [
     {
       title: "Dashboard",
@@ -243,6 +239,15 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user } = useAppSelector(state => state.auth);
+
+  // Get user data or provide default values if not available
+  const userData = {
+    name: user?.name || "Guest User",
+    email: user?.email || "guest@example.com",
+    avatar: user?.avatar || "/avatars/default.jpg",
+  };
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -268,7 +273,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={userData} />
       </SidebarFooter>
     </Sidebar>
   )

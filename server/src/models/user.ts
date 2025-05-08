@@ -1,6 +1,7 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import sequelize from '../config/database';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 
 // Interface for User attributes
 interface UserAttributes {
@@ -17,12 +18,13 @@ interface UserAttributes {
   reset_token_expires: Date | null;
   verification_token: string | null;
   email_verified: boolean;
+  avatar: string | null;
   created_at: Date;
   updated_at: Date;
 }
 
 // Interface for User creation attributes
-interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'created_at' | 'updated_at' | 'last_login' | 'reset_token' | 'reset_token_expires' | 'verification_token' | 'email_verified'> {
+interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'created_at' | 'updated_at' | 'last_login' | 'reset_token' | 'reset_token_expires' | 'verification_token' | 'email_verified' | 'avatar'> {
   password: string; // Plain password for creation only
 }
 
@@ -41,6 +43,7 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public reset_token_expires!: Date | null;
   public verification_token!: string | null;
   public email_verified!: boolean;
+  public avatar!: string | null;
   public created_at!: Date;
   public updated_at!: Date;
 
@@ -51,6 +54,12 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
 
     const { password, ...otherData } = userData;
     return User.create({ ...otherData, password_hash } as any);
+  }
+
+  // Generate Gravatar URL for user
+  static getGravatarUrl(email: string): string {
+    const hash = crypto.createHash('md5').update(email.toLowerCase().trim()).digest('hex');
+    return `https://www.gravatar.com/avatar/${hash}?d=mp&s=200`;
   }
 
   // Validate password
@@ -131,6 +140,14 @@ User.init({
   email_verified: {
     type: DataTypes.BOOLEAN,
     defaultValue: false
+  },
+  avatar: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    get() {
+      const rawValue = this.getDataValue('avatar');
+      return rawValue || User.getGravatarUrl(this.email);
+    }
   },
   created_at: {
     type: DataTypes.DATE,
