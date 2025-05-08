@@ -1,4 +1,4 @@
-import TrendingTopic from "../models/TrendingTopic";
+import TrendingTopic from "../models/trendingTopic";
 import newsApiService from "../services/newsApiService";
 
 export const fetchAndStoreTrendingTopics = async (req, res) => {

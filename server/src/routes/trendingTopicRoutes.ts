@@ -1,5 +1,5 @@
 import express from "express";
-import trendingTopicController from "../controllers/tendingTopicController";
+import trendingTopicController from "../controllers/trendingTopicController";
 
 const router = express.Router();
 
