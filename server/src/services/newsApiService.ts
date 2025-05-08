@@ -1,22 +1,11 @@
 import axios from "axios";
-import TrendingTopic from "../models/TrendingTopic";
+import TrendingTopic from "../models/trendingTopic";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const NEWS_API_BASE_URL = process.env.NEWS_API_BASE_URL;
-
-interface SavedArticle {
-  id: number;
-  title: string;
-  content?: string;
-  url: string;
-  source: string;
-  category: string;
-  published_at: string;
-  relevance_score: number;
-}
 
 class NewsApiService {
   async fetchTrendingTopics(category = "business", pageSize = 10) {
@@ -38,13 +27,6 @@ class NewsApiService {
       const savedArticles: any[] = [];
 
       for (const article of articles) {
-        // Log the article data to verify URL is present
-        console.log('Processing article:', {
-          title: article.title,
-          url: article.url,
-          source: article.source?.name,
-        });
-
         // Make sure the URL is properly saved
         if (!article.url) {
           console.log('Warning: Article has no URL, skipping');
