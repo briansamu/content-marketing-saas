@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import bodyParser from "body-parser";
 import multer from "multer";
 import { syncDatabase } from "./models/index.js";
+import trendingTopicRoutes from "./routes/trendingTopicRoutes.js";
 
 dotenv.config();
 
@@ -17,6 +18,8 @@ app.use(bodyParser.json());
 app.use(upload.none());
 
 syncDatabase();
+
+app.use("/api/trending-topics", trendingTopicRoutes);
 
 const port = process.env.PORT || 8080;
 
