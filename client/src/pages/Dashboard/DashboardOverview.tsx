@@ -16,7 +16,7 @@ const DashboardOverview = () => {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/dashboard">
+                <BreadcrumbLink href="/app/dashboard">
                   Dashboard
                 </BreadcrumbLink>
               </BreadcrumbItem>

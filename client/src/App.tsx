@@ -8,7 +8,7 @@ import { store } from './store'
 import { useEffect, ReactNode } from 'react'
 import { useAppDispatch, useAppSelector } from './store/hooks'
 import { fetchCurrentUser } from './store/slices/authSlice'
-import DashboardLayout from './pages/Dashboard/DashboardLayout'
+import AppLayout from './pages/App/AppLayout'
 import DashboardOverview from './pages/Dashboard/DashboardOverview'
 import NotFound from './pages/NotFound'
 import ContentHubPage from './pages/ContentHub/ContentHubPage'
@@ -65,7 +65,7 @@ function AppContent() {
           <Route path="/register" element={<Register />} />
 
           {/* Protected app routes */}
-          <Route path="/app" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+          <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             {/* Dashboard */}
             <Route path="dashboard" element={<Navigate to="/app/dashboard/overview" replace />} />
             <Route path="dashboard/overview" element={<DashboardOverview />} />
