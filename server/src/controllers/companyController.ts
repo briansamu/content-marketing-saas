@@ -1,21 +1,9 @@
 import { Request, Response } from 'express';
 import { Company, User } from '../models';
-
-// Define user type for type assertions
-interface AppUser {
-  id: number;
-  company_id: number;
-  role: string;
-  [key: string]: any;
-}
-
-// Define custom Request type with user property
-interface AuthenticatedRequest extends Request {
-  user?: AppUser;
-}
+import { AuthRequest } from '../middleware/authMiddleware';
 
 // Get company details
-export const getCompanyDetails = async (req: AuthenticatedRequest, res: Response) => {
+export const getCompanyDetails = async (req: AuthRequest, res: Response) => {
   try {
     const company_id = req.user?.company_id;
 
@@ -51,7 +39,7 @@ export const getCompanyDetails = async (req: AuthenticatedRequest, res: Response
 };
 
 // Update company details
-export const updateCompanyDetails = async (req: AuthenticatedRequest, res: Response) => {
+export const updateCompanyDetails = async (req: AuthRequest, res: Response) => {
   try {
     const company_id = req.user?.company_id;
 
@@ -104,7 +92,7 @@ export const updateCompanyDetails = async (req: AuthenticatedRequest, res: Respo
 };
 
 // Get company settings
-export const getCompanySettings = async (req: AuthenticatedRequest, res: Response) => {
+export const getCompanySettings = async (req: AuthRequest, res: Response) => {
   try {
     const company_id = req.user?.company_id;
 
@@ -142,7 +130,7 @@ export const getCompanySettings = async (req: AuthenticatedRequest, res: Respons
 };
 
 // Update company settings
-export const updateCompanySettings = async (req: AuthenticatedRequest, res: Response) => {
+export const updateCompanySettings = async (req: AuthRequest, res: Response) => {
   try {
     const company_id = req.user?.company_id;
 
@@ -200,7 +188,7 @@ export const updateCompanySettings = async (req: AuthenticatedRequest, res: Resp
 };
 
 // Get company team members
-export const getCompanyTeam = async (req: AuthenticatedRequest, res: Response) => {
+export const getCompanyTeam = async (req: AuthRequest, res: Response) => {
   try {
     const company_id = req.user?.company_id;
 
@@ -237,4 +225,4 @@ export default {
   getCompanySettings,
   updateCompanySettings,
   getCompanyTeam
-} as Record<string, (req: AuthenticatedRequest, res: Response) => Promise<any>>;
+} as Record<string, (req: AuthRequest, res: Response) => Promise<any>>;
