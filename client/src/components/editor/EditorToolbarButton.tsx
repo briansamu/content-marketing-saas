@@ -20,14 +20,16 @@ export function EditorToolbarButton({
 }: EditorToolbarButtonProps) {
   return (
     <TooltipProvider>
-      <Tooltip>
+      <Tooltip delayDuration={300}>
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
             size="icon"
             className={cn(
-              "h-8 w-8 border-none",
-              isActive ? "bg-primary/20 text-primary" : "text-muted-foreground"
+              "h-8 w-8 rounded-md transition-colors",
+              isActive
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
             onClick={onClick}
             disabled={disabled}
@@ -36,7 +38,9 @@ export function EditorToolbarButton({
             {icon}
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">{label}</TooltipContent>
+        <TooltipContent side="bottom" sideOffset={5} className="text-xs">
+          {label}
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

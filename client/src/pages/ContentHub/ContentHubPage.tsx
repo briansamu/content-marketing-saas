@@ -51,76 +51,75 @@ export function ContentHubPage() {
           </Breadcrumb>
         </div>
       </header>
-      <div className="container mx-auto p-4 md:p-6">
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Sidebar with drafts list */}
-          <div className="w-full lg:w-1/3 space-y-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl">Your Content</CardTitle>
-                  <Button size="sm" onClick={handleNewDraft} className="gap-1">
-                    <Plus size={16} />
-                    New
-                  </Button>
+      <div className="flex flex-1 flex-col lg:flex-row gap-6 p-4 md:p-6">
+        {/* Main editor area */}
+        <div className="w-full lg:w-3/5">
+          <ContentEditor />
+        </div>
+
+        {/* Sidebar with drafts list */}
+        <div className="w-full lg:w-2/5 space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl">Your Content</CardTitle>
+                <Button size="sm" onClick={handleNewDraft} className="gap-1">
+                  <Plus size={16} />
+                  New
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {isLoading ? (
+                <div className="flex justify-center p-4">
+                  <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                {isLoading ? (
-                  <div className="flex justify-center p-4">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
-                ) : savedDrafts.length > 0 ? (
-                  <ul className="divide-y">
-                    {savedDrafts.map((draft) => (
-                      <li key={draft.id} className="p-0">
-                        <Button
-                          variant="ghost"
-                          className={`w-full justify-start text-left p-3 rounded-none ${currentDraft.id === draft.id ? 'bg-muted' : ''
-                            }`}
-                          onClick={() => handleLoadDraft(draft.id!)}
-                        >
-                          <div className="flex gap-2 items-start">
-                            <FileText size={18} className="mt-0.5" />
-                            <div>
-                              <p className="font-medium">
-                                {truncateString(draft.title || "Untitled", 24)}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDateString(draft.lastSaved)}
-                              </p>
-                            </div>
+              ) : savedDrafts.length > 0 ? (
+                <ul className="divide-y">
+                  {savedDrafts.map((draft) => (
+                    <li key={draft.id} className="p-0">
+                      <Button
+                        variant="ghost"
+                        className={`w-full justify-start text-left p-3 rounded-none ${currentDraft.id === draft.id ? 'bg-muted' : ''
+                          }`}
+                        onClick={() => handleLoadDraft(draft.id!)}
+                      >
+                        <div className="flex gap-2 items-start">
+                          <FileText size={18} className="mt-0.5" />
+                          <div>
+                            <p className="font-medium">
+                              {truncateString(draft.title || "Untitled", 24)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDateString(draft.lastSaved)}
+                            </p>
                           </div>
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="p-4 text-center text-muted-foreground">
-                    <p>No drafts yet</p>
-                    <p className="text-sm">Create a new draft to get started</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                        </div>
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="p-4 text-center text-muted-foreground">
+                  <p>No drafts yet</p>
+                  <p className="text-sm">Create a new draft to get started</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl">Content Analytics</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-sm">
-                  Analytics features coming soon.
-                </p>
-                {/* Future feature: Basic analytics about your content */}
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl">Content Analytics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">
+                Analytics features coming soon.
+              </p>
+              {/* Future feature: Basic analytics about your content */}
+            </CardContent>
+          </Card>
 
-          {/* Main editor area */}
-          <div className="w-full lg:w-3/4">
-            <ContentEditor />
-          </div>
         </div>
       </div>
     </>

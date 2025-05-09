@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -8,16 +8,41 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { updateContent, updateTitle, saveDraft } from '../../store/slices/editorSlice';
 import { Card, CardContent, CardFooter, CardHeader } from '../ui/card';
 import { Input } from '../ui/input';
-import { Button } from '../ui/button';
-import { Save, AlertCircle } from 'lucide-react';
+import { AlertCircle, Save } from 'lucide-react';
 import EditorToolbar from './EditorToolbar';
 import { formatDateString, calculateReadingTime } from '../../lib/utils';
+import { Button } from '../ui/button';
 import './editor.css';
 
 export function ContentEditor() {
   const dispatch = useAppDispatch();
   const { currentDraft, isSaving, error, isDirty } = useAppSelector((state) => state.editor);
   const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
+  const [editorHeight, setEditorHeight] = useState<string>('400px');
+  const [isMobile, setIsMobile] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+
+  // Check if mobile
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    // Initial check
+    checkScreenSize();
+
+    // Add event listener for resize
+    window.addEventListener('resize', checkScreenSize);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', checkScreenSize);
+    };
+  }, []);
 
   // Initialize the editor
   const editor = useEditor({
@@ -62,6 +87,110 @@ export function ContentEditor() {
     }
   }, [editor, currentDraft.id, currentDraft.content]);
 
+  // Calculate and update the editor height
+  useEffect(() => {
+    const calculateHeight = () => {
+      if (!cardRef.current || !editorContainerRef.current) return;
+
+      // Get the height of other elements within the card
+      const headerHeight = headerRef.current?.offsetHeight || 0;
+      const toolbarHeight = toolbarRef.current?.offsetHeight || 0;
+      const footerHeight = footerRef.current?.offsetHeight || 0;
+
+      // Get padding of content area
+      const contentPadding = 32; // 16px top + 16px bottom (p-4)
+
+      // Get the padding of the editor container itself
+      const editorPadding = 32; // 16px top + 16px bottom (p-4)
+
+      // Get the card's position relative to the viewport
+      const cardRect = cardRef.current.getBoundingClientRect();
+
+      // Calculate maximum available height for the viewport
+      const viewportHeight = window.innerHeight;
+
+      // Extra offset to account for app layout elements (breadcrumbs, header, etc.)
+      const layoutOffset = 85;
+
+      // Add a buffer to prevent scrollbars (70px)
+      const buffer = 20;
+
+      // Calculate the available height for the editor
+      // viewportHeight - (layoutOffset + cardRect.top + all card elements + padding + buffer)
+      const availableHeight = viewportHeight - (layoutOffset + cardRect.top + headerHeight + toolbarHeight + footerHeight + contentPadding + editorPadding + buffer);
+
+      // Set a minimum reasonable height
+      const minHeight = 350;
+      const height = Math.max(availableHeight, minHeight);
+
+      setEditorHeight(`${height}px`);
+    };
+
+    // Initial calculation
+    calculateHeight();
+
+    // Use ResizeObserver to watch for changes in the card size
+    const resizeObserver = new ResizeObserver(calculateHeight);
+    if (cardRef.current) {
+      resizeObserver.observe(cardRef.current);
+    }
+
+    // Also watch for window resize events
+    window.addEventListener('resize', calculateHeight);
+
+    return () => {
+      window.removeEventListener('resize', calculateHeight);
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  // Recalculate height when elements are fully rendered
+  useEffect(() => {
+    // Wait for a short time to ensure all refs are populated
+    const timer = setTimeout(() => {
+      const calculateHeight = () => {
+        if (!cardRef.current || !editorContainerRef.current) return;
+
+        // Get the height of other elements within the card
+        const headerHeight = headerRef.current?.offsetHeight || 0;
+        const toolbarHeight = toolbarRef.current?.offsetHeight || 0;
+        const footerHeight = footerRef.current?.offsetHeight || 0;
+
+        // Get padding of content area
+        const contentPadding = 32; // 16px top + 16px bottom (p-4)
+
+        // Get the padding of the editor container itself
+        const editorPadding = 32; // 16px top + 16px bottom (p-4)
+
+        // Get the card's position relative to the viewport
+        const cardRect = cardRef.current.getBoundingClientRect();
+
+        // Calculate maximum available height for the viewport
+        const viewportHeight = window.innerHeight;
+
+        // Extra offset to account for app layout elements (breadcrumbs, header, etc.)
+        const layoutOffset = 85;
+
+        // Add a buffer to prevent scrollbars (70px)
+        const buffer = 20;
+
+        // Calculate the available height for the editor
+        // viewportHeight - (layoutOffset + cardRect.top + all card elements + padding + buffer)
+        const availableHeight = viewportHeight - (layoutOffset + cardRect.top + headerHeight + toolbarHeight + footerHeight + contentPadding + editorPadding + buffer);
+
+        // Set a minimum reasonable height
+        const minHeight = 350;
+        const height = Math.max(availableHeight, minHeight);
+
+        setEditorHeight(`${height}px`);
+      };
+
+      calculateHeight();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [editor]);
+
   // Cleanup autosave timer on unmount
   useEffect(() => {
     return () => {
@@ -82,8 +211,8 @@ export function ContentEditor() {
   };
 
   return (
-    <Card className="w-full xs:max-w-2xl 2xl:max-w-5xl mx-auto border shadow-sm">
-      <CardHeader className="space-y-1 p-4 pb-0">
+    <Card ref={cardRef} className="w-full xs:max-w-2xl 2xl:max-w-full mx-auto border shadow-sm gap-0">
+      <CardHeader ref={headerRef} className="space-y-1 px-4 pb-2 gap-0">
         <Input
           placeholder="Enter title..."
           value={currentDraft.title}
@@ -91,37 +220,51 @@ export function ContentEditor() {
           className="text-xl font-semibold border-none focus-visible:ring-0 px-3"
         />
       </CardHeader>
-      <CardContent className="p-4">
-        <EditorToolbar editor={editor} />
-        <div className="border rounded-md p-4 xs:min-h-[400px] 2xl:min-h-[600px]">
+      <CardContent className="p-4 pt-0 pb-2">
+        <div ref={toolbarRef}>
+          <EditorToolbar
+            editor={editor}
+            onSave={isMobile ? undefined : handleSave}
+            isSaving={isSaving}
+            isDirty={isDirty}
+          />
+        </div>
+        <div
+          ref={editorContainerRef}
+          className="border rounded-md p-4 overflow-y-auto"
+          style={{ height: editorHeight }}
+        >
           <EditorContent editor={editor} className="prose dark:prose-invert max-w-none" />
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between p-4 pt-0">
+      <CardFooter ref={footerRef} className="flex justify-between p-4 pt-0">
         <div className="text-sm text-muted-foreground">
           {currentDraft.wordCount} words • {calculateReadingTime(currentDraft.wordCount)}
           {currentDraft.lastSaved && (
             <> • Last saved: {formatDateString(currentDraft.lastSaved)}</>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {error && (
-            <div className="text-destructive flex items-center text-sm gap-1">
-              <AlertCircle size={16} />
-              <span>{error}</span>
-            </div>
-          )}
+        {error && (
+          <div className="text-destructive flex items-center text-sm gap-1">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
+      </CardFooter>
+
+      {/* Floating save button for mobile */}
+      {isMobile && (
+        <div className="fixed bottom-4 right-4 z-50">
           <Button
             onClick={handleSave}
             disabled={!isDirty || isSaving}
             size="sm"
-            className="gap-1"
+            className="shadow-lg rounded-full h-12 w-12 p-0"
           >
-            <Save size={16} />
-            {isSaving ? 'Saving...' : 'Save'}
+            <Save size={18} />
           </Button>
         </div>
-      </CardFooter>
+      )}
     </Card>
   );
 }
