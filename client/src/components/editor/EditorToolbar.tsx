@@ -27,6 +27,7 @@ import EditorToolbarButton from './EditorToolbarButton';
 import { cn } from '../../lib/utils';
 import { useEffect, useState } from 'react';
 import { Button } from '../ui/button';
+import LinkDialog from './LinkDialog';
 
 interface EditorToolbarProps {
   editor: Editor | null;
@@ -41,6 +42,7 @@ type TabType = 'text' | 'heading' | 'lists' | 'align' | 'other';
 export function EditorToolbar({ editor, className, onSave, isSaving, isDirty }: EditorToolbarProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('text');
+  const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -174,14 +176,16 @@ export function EditorToolbar({ editor, className, onSave, isSaving, isDirty }: 
   const otherControls = (
     <div className="flex gap-1 flex-wrap">
       <EditorToolbarButton
-        icon={<Link size={18} />}
+        icon={
+          <div className="relative">
+            <Link size={18} />
+            {editor.isActive('link') && (
+              <span className="absolute -top-1 -right-1 bg-primary w-2 h-2 rounded-full" />
+            )}
+          </div>
+        }
         label="Add Link"
-        onClick={() => {
-          const url = window.prompt('URL');
-          if (url) {
-            editor.chain().focus().setLink({ href: url }).run();
-          }
-        }}
+        onClick={() => setIsLinkDialogOpen(true)}
         isActive={editor.isActive('link')}
       />
       <EditorToolbarButton
@@ -297,11 +301,21 @@ export function EditorToolbar({ editor, className, onSave, isSaving, isDirty }: 
   );
 
   return (
-    <div className={cn("border rounded-md bg-background mb-2 flex flex-col shadow-sm", className)}>
-      <div className="flex flex-col w-full">
-        {isMobile ? mobileToolbar : desktopToolbar}
+    <>
+      <div className={cn("border rounded-md bg-background mb-2 flex flex-col shadow-sm", className)}>
+        <div className="flex flex-col w-full">
+          {isMobile ? mobileToolbar : desktopToolbar}
+        </div>
       </div>
-    </div>
+
+      {editor && (
+        <LinkDialog
+          editor={editor}
+          isOpen={isLinkDialogOpen}
+          onClose={() => setIsLinkDialogOpen(false)}
+        />
+      )}
+    </>
   );
 }
 

@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import TextAlign from '@tiptap/extension-text-align';
-import Link from '@tiptap/extension-link';
+import { Link as TiptapLink } from '@tiptap/extension-link';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { updateContent, updateTitle, saveDraft } from '../../store/slices/editorSlice';
 import { Card, CardContent, CardFooter, CardHeader } from '../ui/card';
@@ -13,6 +13,132 @@ import EditorToolbar from './EditorToolbar';
 import { formatDateString, calculateReadingTime } from '../../lib/utils';
 import { Button } from '../ui/button';
 import './editor.css';
+
+// Helper to safely add links to the editor
+export const addLink = (editor: Editor, url: string, text?: string): void => {
+  if (!editor || !url) return;
+
+  const { state } = editor;
+  const { selection } = state;
+  const { empty } = selection;
+
+  // If there's no selection and text is provided, insert the text with a link
+  if (empty && text) {
+    editor.commands.insertContent({
+      type: 'text',
+      text: text,
+      marks: [
+        {
+          type: 'link',
+          attrs: {
+            href: url
+          }
+        }
+      ]
+    });
+  }
+  // If there's no selection and no text, insert the URL as a link
+  else if (empty) {
+    editor.commands.insertContent({
+      type: 'text',
+      text: url,
+      marks: [
+        {
+          type: 'link',
+          attrs: {
+            href: url
+          }
+        }
+      ]
+    });
+  }
+  // If there's a selection and custom text, replace selection with the text as a link
+  else if (text) {
+    editor.commands.deleteSelection();
+    editor.commands.insertContent({
+      type: 'text',
+      text: text,
+      marks: [
+        {
+          type: 'link',
+          attrs: {
+            href: url
+          }
+        }
+      ]
+    });
+  }
+  // If there's just a selection, apply the link to it
+  else {
+    editor.commands.setLink({ href: url });
+  }
+};
+
+// Create an enhanced Link extension that properly handles exiting links
+const CustomLink = TiptapLink.extend({
+  // Make links non-inclusive for better editing experience
+  // This means new text typed at the end of a link won't inherit link formatting
+  inclusive: false,
+
+  addOptions() {
+    return {
+      ...this.parent?.(),
+      openOnClick: false,
+      HTMLAttributes: {
+        rel: 'noopener noreferrer',
+        target: '_blank',
+        class: 'text-primary underline',
+      },
+      protocols: ['http', 'https', 'mailto', 'tel'],
+      // Ensure we don't auto-convert pasted text to links unless they match our validation
+      autolink: false,
+      validate: (href: string) => /^https?:\/\/|^mailto:|^tel:|^#/.test(href),
+      linkOnPaste: true,
+    };
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      ...this.parent?.(),
+      Space: () => {
+        // We run our own space handler to ensure spaces after links don't inherit link formatting
+        const { editor } = this;
+        const { state } = editor;
+
+        // Check if we're at the end of a link mark
+        if (editor.isActive('link')) {
+          // Insert a space without link formatting
+          const { tr } = state;
+          tr.insertText(' ');
+
+          // Get all marks at the current position
+          const currentMarks = state.selection.$from.marks();
+
+          // Filter out link mark but keep other marks
+          const marksWithoutLink = currentMarks.filter(mark => mark.type.name !== 'link');
+
+          // Apply remaining marks to the space
+          if (marksWithoutLink.length > 0) {
+            tr.ensureMarks(marksWithoutLink);
+          }
+
+          // Dispatch the transaction
+          editor.view.dispatch(tr);
+
+          return true;
+        }
+
+        return false;
+      },
+    };
+  },
+
+  // Add classes for focused links to improve UX
+  addProseMirrorPlugins() {
+    const plugins = this.parent?.() || [];
+    return plugins;
+  },
+});
 
 export function ContentEditor() {
   const dispatch = useAppDispatch();
@@ -47,19 +173,19 @@ export function ContentEditor() {
   // Initialize the editor
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        // StarterKit doesn't have a link option to disable in its type definitions
+        // but it works at runtime - this removes TS error
+        // @ts-expect-error link option exists at runtime but not in types
+        link: false,
+      }),
       Placeholder.configure({
         placeholder: 'Start writing your content here...',
       }),
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: {
-          class: 'text-primary underline',
-        },
-      }),
+      CustomLink, // Use our enhanced link extension
     ],
     content: currentDraft.content,
     onUpdate: ({ editor }) => {
@@ -77,6 +203,23 @@ export function ContentEditor() {
       }, 3000);
 
       setAutoSaveTimer(timer);
+    },
+    onSelectionUpdate: ({ editor }) => {
+      // Update link focus styles when selection changes
+      const links = document.querySelectorAll('.ProseMirror a');
+      links.forEach(link => {
+        try {
+          const pos = editor.view.posAtDOM(link, 0);
+          if (pos >= editor.state.selection.from &&
+            pos <= editor.state.selection.to) {
+            link.classList.add('has-focus');
+          } else {
+            link.classList.remove('has-focus');
+          }
+        } catch {
+          // Ignore DOM position errors
+        }
+      });
     },
   });
 
