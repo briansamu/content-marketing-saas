@@ -10,6 +10,7 @@ import { useAppDispatch, useAppSelector } from './store/hooks'
 import { fetchCurrentUser } from './store/slices/authSlice'
 import DashboardLayout from './pages/Dashboard/DashboardLayout'
 import DashboardOverview from './pages/Dashboard/DashboardOverview'
+import NotFound from './pages/Dashboard/NotFound'
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
@@ -58,24 +59,27 @@ function AppContent() {
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/dashboard/overview" />} />
+          <Route path="/" element={<Navigate to="/app/dashboard/overview" />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="/dashboard/overview" replace />} />
-            <Route path="overview" element={<DashboardOverview />} />
-            {/* Add other dashboard routes here, like: */}
-            {/* <Route path="strategy" element={<DashboardStrategy />} /> */}
-            {/* <Route path="creation" element={<DashboardCreation />} /> */}
-            {/* <Route path="analytics" element={<DashboardAnalytics />} /> */}
-            {/* etc. */}
+
+          {/* Protected app routes */}
+          <Route path="/app" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+            {/* Dashboard */}
+            <Route path="dashboard" element={<Navigate to="/app/dashboard/overview" replace />} />
+            <Route path="dashboard/overview" element={<DashboardOverview />} />
+
+            {/* Other sections will follow the same pattern */}
+            {/* <Route path="strategy/*" element={<StrategyRoutes />} /> */}
+            {/* <Route path="creation/*" element={<CreationRoutes />} /> */}
+            {/* <Route path="analytics/*" element={<AnalyticsRoutes />} /> */}
+            {/* <Route path="tools/*" element={<ToolsRoutes />} /> */}
+            {/* <Route path="settings/*" element={<SettingsRoutes />} /> */}
+            {/* <Route path="support" element={<Support />} /> */}
+            {/* <Route path="feedback" element={<Feedback />} /> */}
+
+            {/* Catch-all route for non-existent app pages */}
+            <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </BrowserRouter>

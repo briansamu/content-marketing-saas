@@ -35,12 +35,12 @@ const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "/dashboard",
+      url: "/app/dashboard",
       icon: Home,
       items: [
         {
           title: "Overview",
-          url: "/dashboard/overview",
+          url: "/app/dashboard/overview",
         },
         // MVP starts with basic dashboard only
         // {
@@ -55,12 +55,12 @@ const data = {
     },
     {
       title: "Content Strategy",
-      url: "/strategy",
+      url: "/app/strategy",
       icon: FileText,
       items: [
         {
           title: "Trend Explorer",
-          url: "/strategy/trends",
+          url: "/app/strategy/trends",
         },
         // MVP includes only trend discovery - other strategy features come later
         // {
@@ -79,7 +79,7 @@ const data = {
     },
     {
       title: "Creation Hub",
-      url: "/creation",
+      url: "/app/creation",
       icon: PenTool,
       items: [
         // MVP includes only simple content editor - other creation tools come later
@@ -89,7 +89,7 @@ const data = {
         // },
         {
           title: "Editor",
-          url: "/creation/editor",
+          url: "/app/creation/editor",
         },
         // {
         //   title: "Templates",
@@ -103,12 +103,12 @@ const data = {
     },
     {
       title: "Analytics",
-      url: "/analytics",
+      url: "/app/analytics",
       icon: BarChart,
       items: [
         {
           title: "Performance",
-          url: "/analytics/performance",
+          url: "/app/analytics/performance",
         },
         // MVP includes only basic analytics - detailed analytics come later
         // {
@@ -152,13 +152,13 @@ const data = {
     // },
     {
       title: "Tools",
-      url: "/tools",
+      url: "/app/tools",
       icon: Hammer,
       items: [
         // MVP includes only basic SEO score - other tools come later
         {
           title: "SEO Optimizer",
-          url: "/tools/seo",
+          url: "/app/tools/seo",
         },
         // {
         //   title: "Content Scorer",
@@ -200,13 +200,13 @@ const data = {
     // },
     {
       title: "Settings",
-      url: "/settings",
+      url: "/app/settings",
       icon: Settings2,
       items: [
         // MVP only needs basic integration settings
         {
           title: "Integrations",
-          url: "/settings/integrations",
+          url: "/app/settings/integrations",
         },
         // {
         //   title: "Notifications",
@@ -218,12 +218,12 @@ const data = {
   navSecondary: [
     {
       title: "Support",
-      url: "/support",
+      url: "/app/support",
       icon: LifeBuoy,
     },
     {
       title: "Feedback",
-      url: "/feedback",
+      url: "/app/feedback",
       icon: Send,
     },
   ],

@@ -26,7 +26,7 @@ export function LoginForm({
   const location = useLocation();
 
   // Get the redirect path from location state or default to dashboard
-  const from = location.state?.from?.pathname || '/dashboard';
+  const from = location.state?.from?.pathname || '/app/dashboard';
 
   // If already authenticated, redirect to dashboard
   if (isAuthenticated) {
