@@ -193,10 +193,10 @@ export function ContentEditor() {
       const viewportHeight = window.innerHeight;
 
       // Extra offset to account for app layout elements (breadcrumbs, header, etc.)
-      const layoutOffset = 85;
+      const layoutOffset = 35;
 
       // Add a buffer to prevent scrollbars (70px)
-      const buffer = 20;
+      const buffer = 0;
 
       // Calculate the available height for the editor
       // viewportHeight - (layoutOffset + cardRect.top + all card elements + padding + buffer)
@@ -252,10 +252,10 @@ export function ContentEditor() {
         const viewportHeight = window.innerHeight;
 
         // Extra offset to account for app layout elements (breadcrumbs, header, etc.)
-        const layoutOffset = 85;
+        const layoutOffset = 35;
 
         // Add a buffer to prevent scrollbars (70px)
-        const buffer = 20;
+        const buffer = 0;
 
         // Calculate the available height for the editor
         // viewportHeight - (layoutOffset + cardRect.top + all card elements + padding + buffer)
