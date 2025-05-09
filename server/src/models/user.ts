@@ -25,35 +25,54 @@ interface UserAttributes {
 
 // Interface for User creation attributes
 interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'created_at' | 'updated_at' | 'last_login' | 'reset_token' | 'reset_token_expires' | 'verification_token' | 'email_verified' | 'avatar'> {
-  password: string; // Plain password for creation only
+  password?: string; // Plain password for creation only
 }
 
 // User model with instance methods
 class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
-  public id!: number;
-  public email!: string;
-  public password_hash!: string;
-  public first_name!: string | null;
-  public last_name!: string | null;
-  public role!: string;
-  public company_id!: number | null;
-  public last_login!: Date | null;
-  public status!: string;
-  public reset_token!: string | null;
-  public reset_token_expires!: Date | null;
-  public verification_token!: string | null;
-  public email_verified!: boolean;
-  public avatar!: string | null;
-  public created_at!: Date;
-  public updated_at!: Date;
+  // Sequelize will define these fields, so we only declare them for TypeScript
+  declare id: number;
+  declare email: string;
+  declare password_hash: string;
+  declare first_name: string | null;
+  declare last_name: string | null;
+  declare role: string;
+  declare company_id: number | null;
+  declare last_login: Date | null;
+  declare status: string;
+  declare reset_token: string | null;
+  declare reset_token_expires: Date | null;
+  declare verification_token: string | null;
+  declare email_verified: boolean;
+  declare avatar: string | null;
+  declare created_at: Date;
+  declare updated_at: Date;
+
+  // Add this field to correctly handle password in hooks
+  declare password?: string;
 
   // Static method to create user with password
-  static async createWithPassword(userData: Omit<UserCreationAttributes, 'password_hash'> & { password: string }): Promise<User> {
+  static async createWithPassword(
+    userData: Omit<UserCreationAttributes, 'password_hash'> & { password: string },
+    transaction?: any
+  ): Promise<User> {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(userData.password, salt);
 
     const { password, ...otherData } = userData;
-    return User.create({ ...otherData, password_hash } as any);
+
+    // Ensure company_id is properly included in the creation attributes
+    const createOptions = transaction ? { transaction } : {};
+
+    // Debug logs to track the company_id
+    console.log('Creating user with userData:', { ...userData, password: '[REDACTED]' });
+    console.log('otherData contains company_id:', otherData.company_id);
+
+    return User.create({
+      ...otherData,
+      password_hash,
+      company_id: userData.company_id || null // Explicitly set company_id
+    }, createOptions);
   }
 
   // Generate Gravatar URL for user
@@ -112,7 +131,14 @@ User.init({
     defaultValue: 'user'
   },
   company_id: {
-    type: DataTypes.INTEGER
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'companies',
+      key: 'id'
+    },
+    onUpdate: 'CASCADE',
+    onDelete: 'SET NULL'
   },
   last_login: {
     type: DataTypes.DATE,
@@ -159,20 +185,14 @@ User.init({
   }
 }, {
   hooks: {
-    beforeCreate: async (user: User & { password?: string }) => {
-      if (user.password) {
-        const salt = await bcrypt.genSalt(10);
-        user.password_hash = await bcrypt.hash(user.password, salt);
-        // Don't delete user.password here, as it may cause issues
-      } else {
-        throw new Error('Password is required for user creation');
-      }
-    },
-    beforeUpdate: async (user: User & { password?: string }) => {
-      if (user.password) {
-        const salt = await bcrypt.genSalt(10);
-        user.password_hash = await bcrypt.hash(user.password, salt);
-        // Don't delete user.password here, as it may cause issues
+    // Add a beforeCreate hook to ensure company_id is set
+    beforeCreate: (user: any) => {
+      // Debug log to see what's happening
+      console.log('Creating user with company_id:', user.company_id);
+
+      // Ensure company_id is set (additional safeguard)
+      if (user.company_id === undefined || user.company_id === null) {
+        console.error('Warning: company_id is not set during user creation');
       }
     }
   },

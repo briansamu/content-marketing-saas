@@ -1,13 +1,15 @@
 import './App.css'
 import Login from './pages/Login/Login'
+import Register from './pages/Register/Register'
 import { ThemeProvider } from './components/theme-provider'
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from 'react-router'
-import Dashboard from './pages/Dashboard/Dashboard'
 import { Provider } from 'react-redux'
 import { store } from './store'
 import { useEffect, ReactNode } from 'react'
 import { useAppDispatch, useAppSelector } from './store/hooks'
 import { fetchCurrentUser } from './store/slices/authSlice'
+import DashboardLayout from './pages/Dashboard/DashboardLayout'
+import DashboardOverview from './pages/Dashboard/DashboardOverview'
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
@@ -56,16 +58,25 @@ function AppContent() {
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" />} />
+          <Route path="/" element={<Navigate to="/dashboard/overview" />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <DashboardLayout />
               </ProtectedRoute>
             }
-          />
+          >
+            <Route index element={<Navigate to="/dashboard/overview" replace />} />
+            <Route path="overview" element={<DashboardOverview />} />
+            {/* Add other dashboard routes here, like: */}
+            {/* <Route path="strategy" element={<DashboardStrategy />} /> */}
+            {/* <Route path="creation" element={<DashboardCreation />} /> */}
+            {/* <Route path="analytics" element={<DashboardAnalytics />} /> */}
+            {/* etc. */}
+          </Route>
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

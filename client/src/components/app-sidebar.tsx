@@ -8,12 +8,12 @@ import {
   Home,
   LifeBuoy,
   // Map,
-  MessageCircle,
+  // MessageCircle,
   PenTool,
   // PieChart,
   Send,
   Settings2,
-  Users,
+  // Users,
 } from "lucide-react"
 
 import { NavMain } from "./nav-main"
@@ -35,187 +35,195 @@ const data = {
   navMain: [
     {
       title: "Dashboard",
-      url: "#",
+      url: "/dashboard",
       icon: Home,
-      isActive: true,
       items: [
         {
           title: "Overview",
-          url: "#",
+          url: "/dashboard/overview",
         },
-        {
-          title: "Insights",
-          url: "#",
-        },
-        {
-          title: "Alerts",
-          url: "#",
-        },
+        // MVP starts with basic dashboard only
+        // {
+        //   title: "Insights",
+        //   url: "#",
+        // },
+        // {
+        //   title: "Alerts",
+        //   url: "#",
+        // },
       ],
     },
     {
       title: "Content Strategy",
-      url: "#",
+      url: "/strategy",
       icon: FileText,
       items: [
         {
           title: "Trend Explorer",
-          url: "#",
+          url: "/strategy/trends",
         },
-        {
-          title: "Competitor Analysis",
-          url: "#",
-        },
-        {
-          title: "Content Calendar",
-          url: "#",
-        },
-        {
-          title: "Content Gaps",
-          url: "#",
-        },
+        // MVP includes only trend discovery - other strategy features come later
+        // {
+        //   title: "Competitor Analysis",
+        //   url: "#",
+        // },
+        // {
+        //   title: "Content Calendar",
+        //   url: "#",
+        // },
+        // {
+        //   title: "Content Gaps",
+        //   url: "#",
+        // },
       ],
     },
     {
       title: "Creation Hub",
-      url: "#",
+      url: "/creation",
       icon: PenTool,
       items: [
-        {
-          title: "AI Writer",
-          url: "#",
-        },
+        // MVP includes only simple content editor - other creation tools come later
+        // {
+        //   title: "AI Writer",
+        //   url: "#",
+        // },
         {
           title: "Editor",
-          url: "#",
+          url: "/creation/editor",
         },
-        {
-          title: "Templates",
-          url: "#",
-        },
-        {
-          title: "Asset Library",
-          url: "#",
-        },
+        // {
+        //   title: "Templates",
+        //   url: "#",
+        // },
+        // {
+        //   title: "Asset Library",
+        //   url: "#",
+        // },
       ],
     },
     {
       title: "Analytics",
-      url: "#",
+      url: "/analytics",
       icon: BarChart,
       items: [
         {
           title: "Performance",
-          url: "#",
+          url: "/analytics/performance",
         },
-        {
-          title: "Audience",
-          url: "#",
-        },
-        {
-          title: "ROI Tracking",
-          url: "#",
-        },
-        {
-          title: "Custom Reports",
-          url: "#",
-        },
+        // MVP includes only basic analytics - detailed analytics come later
+        // {
+        //   title: "Audience",
+        //   url: "#",
+        // },
+        // {
+        //   title: "ROI Tracking",
+        //   url: "#",
+        // },
+        // {
+        //   title: "Custom Reports",
+        //   url: "#",
+        // },
       ],
     },
-    {
-      title: "Social Intelligence",
-      url: "#",
-      icon: MessageCircle,
-      items: [
-        {
-          title: "Social Monitor",
-          url: "#",
-        },
-        {
-          title: "Engagement Tracker",
-          url: "#",
-        },
-        {
-          title: "Influencer Database",
-          url: "#",
-        },
-        {
-          title: "Viral Content",
-          url: "#",
-        },
-      ],
-    },
+    // The following sections are not part of the initial MVP
+    // Social Intelligence requires more advanced API integrations
+    // {
+    //   title: "Social Intelligence",
+    //   url: "#",
+    //   icon: MessageCircle,
+    //   items: [
+    //     {
+    //       title: "Social Monitor",
+    //       url: "#",
+    //     },
+    //     {
+    //       title: "Engagement Tracker",
+    //       url: "#",
+    //     },
+    //     {
+    //       title: "Influencer Database",
+    //       url: "#",
+    //     },
+    //     {
+    //       title: "Viral Content",
+    //       url: "#",
+    //     },
+    //   ],
+    // },
     {
       title: "Tools",
-      url: "#",
+      url: "/tools",
       icon: Hammer,
       items: [
+        // MVP includes only basic SEO score - other tools come later
         {
           title: "SEO Optimizer",
-          url: "#",
+          url: "/tools/seo",
         },
-        {
-          title: "Content Scorer",
-          url: "#",
-        },
-        {
-          title: "Image Generator",
-          url: "#",
-        },
-        {
-          title: "Distribution Manager",
-          url: "#",
-        },
+        // {
+        //   title: "Content Scorer",
+        //   url: "#",
+        // },
+        // {
+        //   title: "Image Generator",
+        //   url: "#",
+        // },
+        // {
+        //   title: "Distribution Manager",
+        //   url: "#",
+        // },
       ],
     },
-    {
-      title: "Team/Workspace",
-      url: "#",
-      icon: Users,
-      items: [
-        {
-          title: "Team Members",
-          url: "#",
-        },
-        {
-          title: "Client Accounts",
-          url: "#",
-        },
-        {
-          title: "Permissions",
-          url: "#",
-        },
-        {
-          title: "Collaboration",
-          url: "#",
-        },
-      ],
-    },
+    // Team/Workspace features are typically added post-MVP
+    // {
+    //   title: "Team/Workspace",
+    //   url: "#",
+    //   icon: Users,
+    //   items: [
+    //     {
+    //       title: "Team Members",
+    //       url: "#",
+    //     },
+    //     {
+    //       title: "Client Accounts",
+    //       url: "#",
+    //     },
+    //     {
+    //       title: "Permissions",
+    //       url: "#",
+    //     },
+    //     {
+    //       title: "Collaboration",
+    //       url: "#",
+    //     },
+    //   ],
+    // },
     {
       title: "Settings",
-      url: "#",
+      url: "/settings",
       icon: Settings2,
       items: [
+        // MVP only needs basic integration settings
         {
           title: "Integrations",
-          url: "#",
+          url: "/settings/integrations",
         },
-        {
-          title: "Notifications",
-          url: "#",
-        }
+        // {
+        //   title: "Notifications",
+        //   url: "#",
+        // }
       ],
     },
   ],
   navSecondary: [
     {
       title: "Support",
-      url: "#",
+      url: "/support",
       icon: LifeBuoy,
     },
     {
       title: "Feedback",
-      url: "#",
+      url: "/feedback",
       icon: Send,
     },
   ],
