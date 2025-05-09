@@ -82,18 +82,18 @@ export function ContentEditor() {
   };
 
   return (
-    <Card className="w-full max-w-4xl mx-auto border shadow-sm">
+    <Card className="w-full xs:max-w-2xl 2xl:max-w-5xl mx-auto border shadow-sm">
       <CardHeader className="space-y-1 p-4 pb-0">
         <Input
           placeholder="Enter title..."
           value={currentDraft.title}
           onChange={handleTitleChange}
-          className="text-xl font-semibold border-none focus-visible:ring-0 px-0"
+          className="text-xl font-semibold border-none focus-visible:ring-0 px-3"
         />
       </CardHeader>
       <CardContent className="p-4">
         <EditorToolbar editor={editor} />
-        <div className="border rounded-md p-4 min-h-[400px]">
+        <div className="border rounded-md p-4 xs:min-h-[400px] 2xl:min-h-[600px]">
           <EditorContent editor={editor} className="prose dark:prose-invert max-w-none" />
         </div>
       </CardContent>

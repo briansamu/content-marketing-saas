@@ -28,7 +28,7 @@ export function ContentHubPage() {
     <div className="container mx-auto p-4 md:p-6">
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Sidebar with drafts list */}
-        <div className="w-full lg:w-1/4 space-y-4">
+        <div className="w-full lg:w-1/3 space-y-4">
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
