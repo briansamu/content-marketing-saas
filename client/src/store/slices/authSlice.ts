@@ -1,5 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 
+// API URL from environment variable with fallback
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 export interface User {
   id: number;
   name: string;
@@ -40,7 +43,7 @@ export const login = createAsyncThunk(
   'auth/login',
   async ({ email, password }: { email: string; password: string }, { rejectWithValue, dispatch }) => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,7 +80,7 @@ export const fetchCurrentUser = createAsyncThunk(
     }
 
     try {
-      const response = await fetch('http://localhost:8080/api/auth/me', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -118,7 +121,7 @@ export const register = createAsyncThunk(
   'auth/register',
   async (userData: RegisterCredentials, { rejectWithValue }) => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/register', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -152,7 +155,7 @@ export const uploadAvatar = createAsyncThunk(
       const formData = new FormData();
       formData.append('avatar', file);
 
-      const response = await fetch('http://localhost:8080/api/users/avatar', {
+      const response = await fetch(`${API_BASE_URL}/api/users/avatar`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
