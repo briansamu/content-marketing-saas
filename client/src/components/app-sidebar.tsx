@@ -79,7 +79,7 @@ const data = {
     },
     {
       title: "Creation Hub",
-      url: "/app/creation",
+      url: "/app/content",
       icon: PenTool,
       items: [
         // MVP includes only simple content editor - other creation tools come later
@@ -89,7 +89,7 @@ const data = {
         // },
         {
           title: "Editor",
-          url: "/app/creation/editor",
+          url: "/app/content/editor",
         },
         // {
         //   title: "Templates",

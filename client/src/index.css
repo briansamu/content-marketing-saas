@@ -215,3 +215,79 @@
     overflow-y: scroll !important;
   }
 }
+
+/* Prose styling for the editor content */
+@layer components {
+  .prose {
+    @apply max-w-none text-foreground;
+  }
+
+  .prose h1 {
+    @apply text-3xl font-bold mb-4 leading-tight;
+  }
+
+  .prose h2 {
+    @apply text-2xl font-bold mb-3 leading-tight;
+  }
+
+  .prose h3 {
+    @apply text-xl font-bold mb-3 leading-tight;
+  }
+
+  .prose p {
+    @apply mb-4 leading-relaxed;
+  }
+
+  .prose ul {
+    @apply list-disc pl-6 mb-4;
+  }
+
+  .prose ol {
+    @apply list-decimal pl-6 mb-4;
+  }
+
+  .prose li {
+    @apply mb-2;
+  }
+
+  .prose a {
+    @apply text-primary underline;
+  }
+
+  .prose blockquote {
+    @apply border-l-4 border-border pl-4 italic my-4;
+  }
+
+  .prose pre {
+    @apply bg-secondary rounded-md p-4 overflow-x-auto mb-4;
+  }
+
+  .prose code {
+    @apply font-mono text-sm bg-secondary px-1.5 py-0.5 rounded-md;
+  }
+
+  .prose pre code {
+    @apply bg-transparent p-0;
+  }
+
+  .prose img {
+    @apply max-w-full h-auto my-4;
+  }
+
+  .dark .prose {
+    @apply text-foreground;
+  }
+
+  .dark .prose a {
+    @apply text-primary;
+  }
+
+  .dark .prose blockquote {
+    @apply border-border;
+  }
+
+  .dark .prose code,
+  .dark .prose pre {
+    @apply bg-secondary;
+  }
+}

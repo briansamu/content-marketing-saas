@@ -11,6 +11,7 @@ import { fetchCurrentUser } from './store/slices/authSlice'
 import DashboardLayout from './pages/Dashboard/DashboardLayout'
 import DashboardOverview from './pages/Dashboard/DashboardOverview'
 import NotFound from './pages/NotFound'
+import ContentHubPage from './pages/ContentHub/ContentHubPage'
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
@@ -68,6 +69,10 @@ function AppContent() {
             {/* Dashboard */}
             <Route path="dashboard" element={<Navigate to="/app/dashboard/overview" replace />} />
             <Route path="dashboard/overview" element={<DashboardOverview />} />
+
+            {/* Content Creation Hub */}
+            <Route path="content" element={<Navigate to="/app/content/editor" replace />} />
+            <Route path="content/editor" element={<ContentHubPage />} />
 
             {/* Other sections will follow the same pattern */}
             {/* <Route path="strategy/*" element={<StrategyRoutes />} /> */}
