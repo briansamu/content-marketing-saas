@@ -14,7 +14,7 @@ services:
     depends_on:
       - server
     environment:
-      - VITE_API_URL=http://server:8080
+      - VITE_API_URL=http://localhost:8080
       - CHOKIDAR_USEPOLLING=true
     restart: unless-stopped
 
