@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { loadDrafts, newDraft, loadDraft, saveDraft } from '../../store/slices/editorSlice';
+import { loadDrafts, newDraft, loadDraft, saveDraft, deleteDraft } from '../../store/slices/editorSlice';
 import ContentEditor from '../../components/editor/ContentEditor';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -12,10 +12,22 @@ import { BreadcrumbList, BreadcrumbPage } from "../../components/ui/breadcrumb";
 import { BreadcrumbItem } from "../../components/ui/breadcrumb";
 import { Separator } from "../../components/ui/separator";
 import { SidebarTrigger } from "../../components/ui/sidebar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../../components/ui/alert-dialog";
 
 export function ContentHubPage() {
   const dispatch = useAppDispatch();
   const { savedDrafts, isLoading, currentDraft, isSaving, isDirty } = useAppSelector((state) => state.editor);
+  const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
 
   // Load saved drafts on initial render
   useEffect(() => {
@@ -32,6 +44,29 @@ export function ContentHubPage() {
 
   const handleSave = () => {
     dispatch(saveDraft(currentDraft));
+  };
+
+  const handleDeleteDraft = (draftId: string) => {
+    setDraftToDelete(draftId);
+  };
+
+  const confirmDeleteDraft = () => {
+    if (draftToDelete) {
+      // Dispatch the delete action to remove from localStorage
+      dispatch(deleteDraft(draftToDelete));
+      setDraftToDelete(null);
+
+      // FUTURE INTEGRATION: When connecting to backend, replace the above with proper API call
+      // Example:
+      // dispatch(deleteDraft(draftToDelete))
+      //   .unwrap()
+      //   .then(() => {
+      //     // Success handling
+      //   })
+      //   .catch((error) => {
+      //     // Error handling
+      //   });
+    }
   };
 
   return (
@@ -111,7 +146,41 @@ export function ContentHubPage() {
                           </div>
                         </div>
                         <div className="flex gap-4">
-                          <Trash size={18} className="mt-2 mr-0.5 size-5" />
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                className="p-0 h-auto hover:bg-transparent"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteDraft(draft.id!);
+                                }}
+                              >
+                                <Trash size={18} className="text-muted-foreground hover:text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will permanently delete your
+                                  draft "{draft.title || "Untitled"}".
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    confirmDeleteDraft();
+                                  }}
+                                  className="bg-destructive hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                           <ArrowRightCircleIcon size={18} className="mt-2 mr-0.5 size-5" />
                         </div>
                       </Button>

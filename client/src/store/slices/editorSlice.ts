@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 
 // API URL from environment variable with fallback
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 // Types
 export interface ContentDraft {
@@ -203,6 +203,60 @@ export const loadDraft = createAsyncThunk(
   }
 );
 
+export const deleteDraft = createAsyncThunk(
+  'editor/deleteDraft',
+  async (draftId: string, { rejectWithValue }) => {
+    try {
+      // Delete from localStorage (temporary solution until backend is ready)
+      const existingDrafts = getLocalDrafts();
+      const updatedDrafts = existingDrafts.filter(d => d.id !== draftId);
+
+      // If we're deleting the current draft, return the ID so we can clear it
+      const wasCurrentDraft = existingDrafts.find(d => d.id === draftId);
+
+      saveLocalDrafts(updatedDrafts);
+
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      return {
+        updatedDrafts,
+        deletedDraftId: draftId,
+        wasCurrentDraft: Boolean(wasCurrentDraft)
+      };
+
+      // FUTURE INTEGRATION: Uncomment when backend is ready
+      /*
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return rejectWithValue('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/content/drafts/${draftId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        return rejectWithValue(data.message || 'Failed to delete draft');
+      }
+
+      return { 
+        deletedDraftId: draftId,
+        wasCurrentDraft
+      };
+      */
+    } catch (error) {
+      console.error('Delete draft error:', error);
+      return rejectWithValue('Failed to delete draft. Please try again.');
+    }
+  }
+);
+
 // Slice
 const editorSlice = createSlice({
   name: 'editor',
@@ -280,6 +334,32 @@ const editorSlice = createSlice({
       state.isDirty = false;
     });
     builder.addCase(loadDraft.rejected, (state, action) => {
+      state.isLoading = false;
+      state.error = action.payload as string;
+    });
+
+    // Delete draft
+    builder.addCase(deleteDraft.pending, (state) => {
+      state.isLoading = true;
+      state.error = null;
+    });
+    builder.addCase(deleteDraft.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.savedDrafts = action.payload.updatedDrafts;
+
+      // If the deleted draft was the current draft, reset to a new draft
+      if (action.payload.wasCurrentDraft) {
+        state.currentDraft = {
+          title: '',
+          content: '',
+          wordCount: 0,
+          lastSaved: new Date().toISOString(),
+          status: 'draft',
+        };
+        state.isDirty = false;
+      }
+    });
+    builder.addCase(deleteDraft.rejected, (state, action) => {
       state.isLoading = false;
       state.error = action.payload as string;
     });
