@@ -181,7 +181,12 @@ export function ContentHubPage() {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
-                          <ArrowRightCircleIcon size={18} className="mt-2 mr-0.5 size-5" />
+                          <Button
+                            variant="ghost"
+                            className="p-0 h-auto hover:bg-transparent"
+                          >
+                            <ArrowRightCircleIcon size={18} className="text-muted-foreground hover:text-primary" />
+                          </Button>
                         </div>
                       </Button>
                     </li>
