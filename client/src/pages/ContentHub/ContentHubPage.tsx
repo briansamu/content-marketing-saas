@@ -74,7 +74,7 @@ export function ContentHubPage() {
 
         {/* Sidebar with drafts list - simplified to 3 cards */}
         <div className="w-full lg:w-2/5 space-y-4 grid grid-rows-3 gap-4">
-          <Card className="row-span-1">
+          <Card className="row-span-1 gap-2">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xl">Files</CardTitle>
