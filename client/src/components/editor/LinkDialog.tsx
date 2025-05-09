@@ -11,7 +11,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { ExternalLink, Link2 } from 'lucide-react';
-import { addLink } from './ContentEditor';
+import { addLink } from './linkUtils';
 
 interface LinkDialogProps {
   editor: Editor;
