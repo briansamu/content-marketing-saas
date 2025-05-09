@@ -10,7 +10,7 @@ import { useAppDispatch, useAppSelector } from './store/hooks'
 import { fetchCurrentUser } from './store/slices/authSlice'
 import DashboardLayout from './pages/Dashboard/DashboardLayout'
 import DashboardOverview from './pages/Dashboard/DashboardOverview'
-import NotFound from './pages/Dashboard/NotFound'
+import NotFound from './pages/NotFound'
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
