@@ -47,6 +47,9 @@ export const login = (req: Request, res: Response) => {
 
 // Register a new user with associated company
 export const register = async (req: Request, res: Response) => {
+  // Begin a transaction to ensure both company and user are created successfully
+  const transaction = await sequelize.transaction();
+
   try {
     const {
       email,
@@ -59,6 +62,7 @@ export const register = async (req: Request, res: Response) => {
 
     // Validate required fields
     if (!email || !password || !first_name || !last_name || !company_name) {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
         message: 'Missing required fields'
@@ -66,8 +70,13 @@ export const register = async (req: Request, res: Response) => {
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ where: { email } });
+    const existingUser = await User.findOne({
+      where: { email },
+      transaction
+    });
+
     if (existingUser) {
+      await transaction.rollback();
       return res.status(409).json({
         success: false,
         message: 'Email already in use'
@@ -75,7 +84,7 @@ export const register = async (req: Request, res: Response) => {
     }
 
     // Create company first
-    const company = await Company.create({
+    const companyData = {
       name: company_name,
       company_type,
       subscription_tier: 'starter',
@@ -83,45 +92,126 @@ export const register = async (req: Request, res: Response) => {
       max_brands: 1,
       max_users: 2,
       has_white_label: false,
-      billing_cycle: 'monthly'
-    });
+      billing_cycle: 'monthly',
+      settings: {} // Ensure settings is initialized
+    };
+
+    console.log('Creating company with data:', companyData);
+
+    const company = await Company.create(companyData, { transaction });
+
+    // Get the raw values to make sure ID is accessible
+    const companyValues = company.get({ plain: true });
+    console.log('Created company raw values:', companyValues);
+
+    // Debug log to verify company creation
+    console.log('Created company with ID:', company.id);
+
+    if (!company.id) {
+      console.error('Company ID is undefined or null!');
+
+      // Try to retrieve the ID directly from the database
+      try {
+        const [result] = await sequelize.query(
+          'SELECT id FROM companies WHERE name = ? ORDER BY created_at DESC LIMIT 1',
+          {
+            replacements: [company_name],
+            type: QueryTypes.SELECT,
+            transaction
+          }
+        );
+
+        if (result && (result as any).id) {
+          console.log('Retrieved company ID directly from database:', (result as any).id);
+          companyValues.id = (result as any).id;
+        } else {
+          await transaction.rollback();
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to generate company ID'
+          });
+        }
+      } catch (err) {
+        console.error('Error retrieving company ID:', err);
+        await transaction.rollback();
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to generate company ID'
+        });
+      }
+    }
 
     // Generate verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
 
-    // Create user with company association using the static method
-    const user = await User.createWithPassword({
+    // Get the company ID to use (either from the model or our direct query)
+    const companyId = company.id || companyValues.id;
+    console.log('Using company ID for user creation:', companyId);
+
+    // Create user with company association - using direct assignment for clarity
+    const userData = {
       email,
       password,
       first_name,
       last_name,
-      company_id: company.id,
-      role: 'admin', // First user is admin of the company
+      company_id: companyId, // Use the company ID we found
+      role: 'admin',
       status: 'pending',
       verification_token: verificationToken
+    };
+
+    console.log('Creating user with company_id:', userData.company_id);
+
+    const user = await User.createWithPassword(userData, transaction);
+
+    // Verify the user has the company_id set
+    console.log('Created user:', {
+      id: user.id,
+      email: user.email,
+      company_id: user.company_id
     });
+
+    // If company_id is still not set, manually update it
+    if (!user.company_id) {
+      console.log('User created without company_id, manually updating...');
+      // Force direct database update to ensure it's set
+      await sequelize.query(
+        'UPDATE users SET company_id = ? WHERE id = ?',
+        {
+          replacements: [companyId, user.id],
+          type: QueryTypes.UPDATE,
+          transaction
+        }
+      );
+    }
+
+    // Commit the transaction
+    await transaction.commit();
 
     // Generate JWT token
     const token = generateToken(user);
-
-    // Should send verification email here
-    // ...
 
     return res.status(201).json({
       success: true,
       message: 'Registration successful',
       data: {
         token,
-        user: user.toJSON(),
-        company
+        user: {
+          ...user.toJSON(),
+          company_id: companyId // Ensure company_id is returned in the response
+        },
+        company: companyValues // Return the raw company values to ensure ID is included
       }
     });
+
   } catch (error) {
+    // Rollback transaction if any error occurs
+    await transaction.rollback();
     console.error('Registration error:', error);
     return res.status(500).json({
       success: false,
       message: 'Registration failed',
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 };

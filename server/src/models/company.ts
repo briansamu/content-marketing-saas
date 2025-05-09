@@ -27,23 +27,23 @@ interface CompanyCreationAttributes extends Optional<CompanyAttributes, 'id' | '
 
 // Company model
 class Company extends Model<CompanyAttributes, CompanyCreationAttributes> implements CompanyAttributes {
-  public id!: number;
-  public name!: string;
-  public subscription_tier!: string;
-  public subscription_status!: string;
-  public company_type!: string;
-  public max_brands!: number;
-  public max_users!: number;
-  public has_white_label!: boolean;
-  public billing_email!: string | null;
-  public billing_address!: string | null;
-  public billing_cycle!: string;
-  public billing_next_date!: Date | null;
-  public custom_domain!: string | null;
-  public logo_url!: string | null;
-  public settings!: object;
-  public created_at!: Date;
-  public updated_at!: Date;
+  declare id: number;
+  declare name: string;
+  declare subscription_tier: string;
+  declare subscription_status: string;
+  declare company_type: string;
+  declare max_brands: number;
+  declare max_users: number;
+  declare has_white_label: boolean;
+  declare billing_email: string | null;
+  declare billing_address: string | null;
+  declare billing_cycle: string;
+  declare billing_next_date: Date | null;
+  declare custom_domain: string | null;
+  declare logo_url: string | null;
+  declare settings: object;
+  declare created_at: Date;
+  declare updated_at: Date;
 }
 
 Company.init({

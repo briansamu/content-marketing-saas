@@ -52,12 +52,27 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   declare password?: string;
 
   // Static method to create user with password
-  static async createWithPassword(userData: Omit<UserCreationAttributes, 'password_hash'> & { password: string }): Promise<User> {
+  static async createWithPassword(
+    userData: Omit<UserCreationAttributes, 'password_hash'> & { password: string },
+    transaction?: any
+  ): Promise<User> {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(userData.password, salt);
 
     const { password, ...otherData } = userData;
-    return User.create({ ...otherData, password_hash } as any);
+
+    // Ensure company_id is properly included in the creation attributes
+    const createOptions = transaction ? { transaction } : {};
+
+    // Debug logs to track the company_id
+    console.log('Creating user with userData:', { ...userData, password: '[REDACTED]' });
+    console.log('otherData contains company_id:', otherData.company_id);
+
+    return User.create({
+      ...otherData,
+      password_hash,
+      company_id: userData.company_id || null // Explicitly set company_id
+    }, createOptions);
   }
 
   // Generate Gravatar URL for user
@@ -116,7 +131,14 @@ User.init({
     defaultValue: 'user'
   },
   company_id: {
-    type: DataTypes.INTEGER
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'companies',
+      key: 'id'
+    },
+    onUpdate: 'CASCADE',
+    onDelete: 'SET NULL'
   },
   last_login: {
     type: DataTypes.DATE,
@@ -163,7 +185,16 @@ User.init({
   }
 }, {
   hooks: {
-    // No password logic needed here; handled in createWithPassword
+    // Add a beforeCreate hook to ensure company_id is set
+    beforeCreate: (user: any) => {
+      // Debug log to see what's happening
+      console.log('Creating user with company_id:', user.company_id);
+
+      // Ensure company_id is set (additional safeguard)
+      if (user.company_id === undefined || user.company_id === null) {
+        console.error('Warning: company_id is not set during user creation');
+      }
+    }
   },
   sequelize,
   modelName: 'User',
