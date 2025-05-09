@@ -2,17 +2,29 @@ import { Request, Response } from 'express';
 import { Company, User } from '../models';
 
 // Define user type for type assertions
-type AppUser = {
+interface AppUser {
   id: number;
   company_id: number;
   role: string;
   [key: string]: any;
-};
+}
+
+// Define custom Request type with user property
+interface AuthenticatedRequest extends Request {
+  user?: AppUser;
+}
 
 // Get company details
-export const getCompanyDetails = async (req: Request, res: Response) => {
+export const getCompanyDetails = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const company_id = (req.user as AppUser).company_id;
+    const company_id = req.user?.company_id;
+
+    if (!company_id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized or missing company information'
+      });
+    }
 
     const company = await Company.findByPk(company_id);
 
@@ -39,9 +51,17 @@ export const getCompanyDetails = async (req: Request, res: Response) => {
 };
 
 // Update company details
-export const updateCompanyDetails = async (req: Request, res: Response) => {
+export const updateCompanyDetails = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const company_id = (req.user as AppUser).company_id;
+    const company_id = req.user?.company_id;
+
+    if (!company_id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized or missing company information'
+      });
+    }
+
     const {
       name,
       billing_email,
@@ -84,9 +104,16 @@ export const updateCompanyDetails = async (req: Request, res: Response) => {
 };
 
 // Get company settings
-export const getCompanySettings = async (req: Request, res: Response) => {
+export const getCompanySettings = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const company_id = (req.user as AppUser).company_id;
+    const company_id = req.user?.company_id;
+
+    if (!company_id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized or missing company information'
+      });
+    }
 
     const company = await Company.findByPk(company_id);
 
@@ -115,9 +142,17 @@ export const getCompanySettings = async (req: Request, res: Response) => {
 };
 
 // Update company settings
-export const updateCompanySettings = async (req: Request, res: Response) => {
+export const updateCompanySettings = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const company_id = (req.user as AppUser).company_id;
+    const company_id = req.user?.company_id;
+
+    if (!company_id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized or missing company information'
+      });
+    }
+
     const { settings } = req.body;
 
     if (!settings || typeof settings !== 'object') {
@@ -165,9 +200,16 @@ export const updateCompanySettings = async (req: Request, res: Response) => {
 };
 
 // Get company team members
-export const getCompanyTeam = async (req: Request, res: Response) => {
+export const getCompanyTeam = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const company_id = (req.user as AppUser).company_id;
+    const company_id = req.user?.company_id;
+
+    if (!company_id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized or missing company information'
+      });
+    }
 
     const team = await User.findAll({
       where: { company_id },
@@ -195,4 +237,4 @@ export default {
   getCompanySettings,
   updateCompanySettings,
   getCompanyTeam
-} as Record<string, (req: Request, res: Response) => Promise<any>>;
+} as Record<string, (req: AuthenticatedRequest, res: Response) => Promise<any>>;

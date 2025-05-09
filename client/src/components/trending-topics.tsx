@@ -13,6 +13,9 @@ interface TrendingTopic {
   relevance_score?: number;
 }
 
+// API URL from environment variable with fallback
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 export function TrendingTopics() {
   const [topics, setTopics] = useState<TrendingTopic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,10 +25,10 @@ export function TrendingTopics() {
     const fetchTrendingTopics = async () => {
       try {
         setIsLoading(true);
-        console.log('Fetching trending topics...');
+        console.log(`Fetching trending topics from ${API_BASE_URL}/api/trending-topics`);
 
-        // Fetch trending topics from API
-        const response = await fetch('http://localhost:8080/api/trending-topics');
+        // Fetch trending topics from API using environment variable
+        const response = await fetch(`${API_BASE_URL}/api/trending-topics`);
 
         if (!response.ok) {
           throw new Error('Failed to fetch trending topics');
