@@ -65,7 +65,7 @@ export function EditorToolbar({ editor, className, onSave, isSaving, isDirty }: 
 
   // Text formatting controls
   const textControls = (
-    <div className="flex gap-1 flex-wrap justify-center">
+    <div className="flex gap-1 flex-wrap">
       <EditorToolbarButton
         icon={<Bold size={18} />}
         label="Bold"
@@ -100,7 +100,7 @@ export function EditorToolbar({ editor, className, onSave, isSaving, isDirty }: 
 
   // Paragraph controls
   const paragraphControls = (
-    <div className="flex gap-1 flex-wrap justify-center">
+    <div className="flex gap-1 flex-wrap">
       <EditorToolbarButton
         icon={<Heading1 size={18} />}
         label="Heading 1"
@@ -130,7 +130,7 @@ export function EditorToolbar({ editor, className, onSave, isSaving, isDirty }: 
 
   // List controls
   const listControls = (
-    <div className="flex gap-1 flex-wrap justify-center">
+    <div className="flex gap-1 flex-wrap">
       <EditorToolbarButton
         icon={<List size={18} />}
         label="Bullet List"
@@ -148,7 +148,7 @@ export function EditorToolbar({ editor, className, onSave, isSaving, isDirty }: 
 
   // Alignment controls
   const alignmentControls = (
-    <div className="flex gap-1 flex-wrap justify-center">
+    <div className="flex gap-1 flex-wrap">
       <EditorToolbarButton
         icon={<AlignLeft size={18} />}
         label="Align Left"
@@ -172,7 +172,7 @@ export function EditorToolbar({ editor, className, onSave, isSaving, isDirty }: 
 
   // Other tools
   const otherControls = (
-    <div className="flex gap-1 flex-wrap justify-center">
+    <div className="flex gap-1 flex-wrap">
       <EditorToolbarButton
         icon={<Link size={18} />}
         label="Add Link"
@@ -201,49 +201,36 @@ export function EditorToolbar({ editor, className, onSave, isSaving, isDirty }: 
 
   // Full toolbar for desktop
   const desktopToolbar = (
-    <div className="flex items-center flex-wrap gap-1 py-1 px-1">
-      <div className="flex gap-1">
-        {textControls}
-      </div>
+    <div className="grid grid-cols-1 gap-0 py-1 px-1">
+      <div className="flex flex-wrap items-center justify-between w-full">
+        <div className="flex flex-wrap gap-1 items-center">
+          {textControls}
+        </div>
 
-      <Separator orientation="vertical" className="mx-1 h-6" />
-
-      <div className="flex gap-1">
-        {paragraphControls}
-      </div>
-
-      <Separator orientation="vertical" className="mx-1 h-6" />
-
-      <div className="flex gap-1">
-        {listControls}
-      </div>
-
-      <Separator orientation="vertical" className="mx-1 h-6" />
-
-      <div className="flex gap-1">
-        {alignmentControls}
-      </div>
-
-      <Separator orientation="vertical" className="mx-1 h-6" />
-
-      <div className="flex gap-1">
-        {otherControls}
-      </div>
-
-      {onSave && (
-        <>
-          <Separator orientation="vertical" className="mx-1 h-6" />
+        {onSave && (
           <Button
             size="sm"
             variant="outline"
-            className="gap-1.5 ml-auto"
+            className="gap-1.5 shrink-0 ml-1 mr-0"
             onClick={onSave}
             disabled={!isDirty || isSaving}
           >
             {isSaving ? "Saving..." : "Save"}
           </Button>
-        </>
-      )}
+        )}
+      </div>
+
+      <Separator className="my-1" />
+
+      <div className="flex flex-wrap gap-1">
+        {paragraphControls}
+        <Separator orientation="vertical" className="mx-1 h-6 hidden xs:block" />
+        {listControls}
+        <Separator orientation="vertical" className="mx-1 h-6 hidden xs:block" />
+        {alignmentControls}
+        <Separator orientation="vertical" className="mx-1 h-6 hidden xs:block" />
+        {otherControls}
+      </div>
     </div>
   );
 
@@ -301,8 +288,10 @@ export function EditorToolbar({ editor, className, onSave, isSaving, isDirty }: 
           ))}
         </div>
       </div>
-      <div className="p-0.5 border-b">
-        {getTabContent()}
+      <div className="p-1 border-b flex justify-center">
+        <div className="flex flex-wrap justify-center gap-1">
+          {getTabContent()}
+        </div>
       </div>
     </div>
   );
