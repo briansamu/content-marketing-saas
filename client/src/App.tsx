@@ -1,5 +1,6 @@
 import './App.css'
 import Login from './pages/Login/Login'
+import Register from './pages/Register/Register'
 import { ThemeProvider } from './components/theme-provider'
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from 'react-router'
 import { Provider } from 'react-redux'
@@ -59,6 +60,7 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard/overview" />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route
             path="/dashboard"
             element={
