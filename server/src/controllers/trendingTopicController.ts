@@ -1,5 +1,6 @@
 import TrendingTopic from "../models/trendingTopic";
 import newsApiService from "../services/newsApiService";
+import logger from "../utils/logger";
 
 export const fetchAndStoreTrendingTopics = async (req, res) => {
   try {
@@ -8,8 +9,8 @@ export const fetchAndStoreTrendingTopics = async (req, res) => {
     const savedArticles = await newsApiService.fetchTrendingTopics(category, pageSize);
 
     // Log the saved articles to verify URLs
-    console.log(`Returning ${savedArticles.length} saved articles to client`);
-    console.log('First few articles URLs:', savedArticles.slice(0, 3).map(a => a.url));
+    logger.info(`Returning ${savedArticles.length} saved articles to client`);
+    logger.debug('First few articles URLs:', savedArticles.slice(0, 3).map(a => a.url));
 
     res.status(200).json({
       success: true,
@@ -17,7 +18,7 @@ export const fetchAndStoreTrendingTopics = async (req, res) => {
       data: savedArticles,
     });
   } catch (error) {
-    console.error("Error fetching trending topics:", error);
+    logger.error("Error fetching trending topics:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching trending topics",
@@ -40,9 +41,9 @@ export const getTrendingTopics = async (req, res) => {
     });
 
     // Log to verify URLs are being returned
-    console.log(`Found ${trendingTopics.length} trending topics`);
+    logger.info(`Found ${trendingTopics.length} trending topics`);
     if (trendingTopics.length > 0) {
-      console.log('Sample URLs:', trendingTopics.slice(0, 3).map(topic => topic.get('url')));
+      logger.debug('Sample URLs:', trendingTopics.slice(0, 3).map(topic => topic.get('url')));
     }
 
     res.status(200).json({
@@ -51,7 +52,7 @@ export const getTrendingTopics = async (req, res) => {
       data: trendingTopics,
     });
   } catch (error) {
-    console.error("Error fetching trending topics:", error);
+    logger.error("Error fetching trending topics:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching trending topics",
@@ -76,7 +77,7 @@ export const getTrendingTopicById = async (req, res) => {
     }
 
     // Log to verify URL is included
-    console.log(`Found trending topic with ID ${id}, URL: ${trendingTopic.get('url')}`);
+    logger.info(`Found trending topic with ID ${id}, URL: ${trendingTopic.get('url')}`);
 
     res.status(200).json({
       success: true,
@@ -84,7 +85,7 @@ export const getTrendingTopicById = async (req, res) => {
       data: trendingTopic,
     });
   } catch (error) {
-    console.error("Error fetching trending topic:", error);
+    logger.error("Error fetching trending topic:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching trending topic",

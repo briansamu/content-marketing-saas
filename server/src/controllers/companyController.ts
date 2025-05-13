@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Company, User } from '../models';
 import { AuthRequest } from '../middleware/authMiddleware';
+import logger from '../utils/logger';
 
 // Get company details
 export const getCompanyDetails = async (req: AuthRequest, res: Response) => {
@@ -29,7 +30,7 @@ export const getCompanyDetails = async (req: AuthRequest, res: Response) => {
       data: company
     });
   } catch (error) {
-    console.error('Error fetching company details:', error);
+    logger.error('Error fetching company details:', error);
     return res.status(500).json({
       success: false,
       message: 'Error fetching company details',
@@ -82,7 +83,7 @@ export const updateCompanyDetails = async (req: AuthRequest, res: Response) => {
       data: company
     });
   } catch (error) {
-    console.error('Error updating company details:', error);
+    logger.error('Error updating company details:', error);
     return res.status(500).json({
       success: false,
       message: 'Error updating company details',
@@ -120,7 +121,7 @@ export const getCompanySettings = async (req: AuthRequest, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching company settings:', error);
+    logger.error('Error fetching company settings:', error);
     return res.status(500).json({
       success: false,
       message: 'Error fetching company settings',
@@ -178,7 +179,7 @@ export const updateCompanySettings = async (req: AuthRequest, res: Response) => 
       }
     });
   } catch (error) {
-    console.error('Error updating company settings:', error);
+    logger.error('Error updating company settings:', error);
     return res.status(500).json({
       success: false,
       message: 'Error updating company settings',
@@ -210,7 +211,7 @@ export const getCompanyTeam = async (req: AuthRequest, res: Response) => {
       data: team
     });
   } catch (error) {
-    console.error('Error fetching company team:', error);
+    logger.error('Error fetching company team:', error);
     return res.status(500).json({
       success: false,
       message: 'Error fetching company team',

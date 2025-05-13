@@ -3,6 +3,7 @@ import passport from 'passport';
 import { User, Company } from '../models';
 import Brand from '../models/brand';
 import BrandUser from '../models/brandUser';
+import logger from '../utils/logger';
 
 // Define user type for consistent type assertions
 export interface AppUser {
@@ -161,7 +162,7 @@ export const hasBrandAccess = async (req: AuthRequest, res: Response, next: Next
 
     next();
   } catch (error) {
-    console.error('Brand access check error:', error);
+    logger.error('Brand access check error:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error while checking brand access',

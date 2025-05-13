@@ -5,6 +5,7 @@ import bodyParser from "body-parser";
 import multer from "multer";
 import { passport } from "./config/auth.js";
 import { syncDatabase } from "./models/index.js";
+import logger from "./utils/logger";
 
 // Routes
 import authRoutes from "./routes/authRoutes.js";
@@ -45,5 +46,5 @@ app.get("/health", (req, res) => {
 const port = process.env.PORT || 8080;
 
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  logger.info(`Server is running on port ${port}`);
 });

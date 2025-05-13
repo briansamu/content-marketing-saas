@@ -20,6 +20,6 @@ router.post('/request-password-reset', requestPasswordReset);
 router.post('/reset-password', resetPassword);
 
 // Protected auth routes
-router.get('/me', authenticateJWT, getCurrentUser);
+router.get('/me', authenticateJWT as express.RequestHandler, getCurrentUser);
 
 export default router;

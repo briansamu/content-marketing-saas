@@ -1,5 +1,7 @@
 import { AuthRequest } from "../middleware/authMiddleware";
 import { Content, User } from "../models";
+import logger from "../utils/logger";
+import { Response } from "express";
 
 const createContent = async (req, res) => {
   try {
@@ -20,7 +22,7 @@ const createContent = async (req, res) => {
       data: content
     });
   } catch (error) {
-    console.error('Error creating content:', error);
+    logger.error('Error creating content:', error);
     res.status(500).json({
       success: false,
       message: 'Error creating content',

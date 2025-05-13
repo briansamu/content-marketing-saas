@@ -6,6 +6,7 @@ import BrandUser from './brandUser.js';
 import TrendingTopic from './trendingTopic.js';
 import Content from './content.js';
 import ContentAnalytics from './contentAnalytics.js';
+import logger from '../utils/logger';
 
 // User-Company relationship
 User.belongsTo(Company, { foreignKey: 'company_id' });
@@ -34,9 +35,9 @@ Content.hasMany(ContentAnalytics, { foreignKey: 'content_id' });
 const syncDatabase = async () => {
   try {
     await sequelize.sync({ alter: true });
-    console.log('Database synchronized successfully');
+    logger.info('Database synchronized successfully');
   } catch (error) {
-    console.error('Error synchronizing database:', error);
+    logger.error('Error synchronizing database:', error);
   }
 };
 
