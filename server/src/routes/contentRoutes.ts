@@ -1,11 +1,18 @@
 import express from 'express';
-import contentController from '../controllers/contentController';
-import { authenticateJWT } from '../middleware/authMiddleware';
+import contentController from '../controllers/contentController.js';
+import { authenticateJWT } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 router.use(authenticateJWT as express.RequestHandler);
 
 router.get('/create', contentController.createContent as express.RequestHandler);
+
+// Draft management endpoints
+router.get('/drafts', contentController.getDrafts as express.RequestHandler);
+router.get('/drafts/:id', contentController.getDraft as express.RequestHandler);
+router.post('/drafts', contentController.saveDraft as express.RequestHandler);
+router.put('/drafts', contentController.saveDraft as express.RequestHandler);
+router.delete('/drafts/:id', contentController.deleteDraft as express.RequestHandler);
 
 export default router;

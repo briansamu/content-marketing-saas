@@ -9,6 +9,7 @@ import AppLayout from './pages/App/AppLayout'
 import DashboardOverview from './pages/Dashboard/DashboardOverview'
 import NotFound from './pages/NotFound'
 import ContentHubPage from './pages/ContentHub/ContentHubPage'
+import { TooltipProvider } from './components/ui/tooltip'
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
@@ -36,36 +37,38 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
 function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/app/dashboard/overview" />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+      <TooltipProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Navigate to="/app/dashboard/overview" />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
-          {/* Protected app routes */}
-          <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-            {/* Dashboard */}
-            <Route path="dashboard" element={<Navigate to="/app/dashboard/overview" replace />} />
-            <Route path="dashboard/overview" element={<DashboardOverview />} />
+            {/* Protected app routes */}
+            <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+              {/* Dashboard */}
+              <Route path="dashboard" element={<Navigate to="/app/dashboard/overview" replace />} />
+              <Route path="dashboard/overview" element={<DashboardOverview />} />
 
-            {/* Content Creation Hub */}
-            <Route path="content" element={<Navigate to="/app/content/editor" replace />} />
-            <Route path="content/editor" element={<ContentHubPage />} />
+              {/* Content Creation Hub */}
+              <Route path="content" element={<Navigate to="/app/content/editor" replace />} />
+              <Route path="content/editor" element={<ContentHubPage />} />
 
-            {/* Other sections will follow the same pattern */}
-            {/* <Route path="strategy/*" element={<StrategyRoutes />} /> */}
-            {/* <Route path="creation/*" element={<CreationRoutes />} /> */}
-            {/* <Route path="analytics/*" element={<AnalyticsRoutes />} /> */}
-            {/* <Route path="tools/*" element={<ToolsRoutes />} /> */}
-            {/* <Route path="settings/*" element={<SettingsRoutes />} /> */}
-            {/* <Route path="support" element={<Support />} /> */}
-            {/* <Route path="feedback" element={<Feedback />} /> */}
+              {/* Other sections will follow the same pattern */}
+              {/* <Route path="strategy/*" element={<StrategyRoutes />} /> */}
+              {/* <Route path="creation/*" element={<CreationRoutes />} /> */}
+              {/* <Route path="analytics/*" element={<AnalyticsRoutes />} /> */}
+              {/* <Route path="tools/*" element={<ToolsRoutes />} /> */}
+              {/* <Route path="settings/*" element={<SettingsRoutes />} /> */}
+              {/* <Route path="support" element={<Support />} /> */}
+              {/* <Route path="feedback" element={<Feedback />} /> */}
 
-            {/* Catch-all route for non-existent app pages */}
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+              {/* Catch-all route for non-existent app pages */}
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
     </ThemeProvider>
   );
 }

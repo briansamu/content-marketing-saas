@@ -3,7 +3,7 @@ import { useEditorStore } from '../../store/useEditorStore';
 import ContentEditor from '../../components/editor/ContentEditor';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Plus, FileText, Loader2, Save, ArrowRightCircleIcon, Trash } from 'lucide-react';
+import { Plus, FileText, Loader2, Save, ArrowRightCircleIcon, Trash, Cloud, Database } from 'lucide-react';
 import { formatDateString, truncateString } from '../../lib/utils';
 import { Breadcrumb, BreadcrumbLink } from "../../components/ui/breadcrumb";
 import { BreadcrumbSeparator } from "../../components/ui/breadcrumb";
@@ -11,6 +11,7 @@ import { BreadcrumbList, BreadcrumbPage } from "../../components/ui/breadcrumb";
 import { BreadcrumbItem } from "../../components/ui/breadcrumb";
 import { Separator } from "../../components/ui/separator";
 import { SidebarTrigger } from "../../components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +67,47 @@ export function ContentHubPage() {
     }
   };
 
+  const getStorageIcon = (storageLocation: 'local' | 'cloud' | 'both') => {
+    switch (storageLocation) {
+      case 'cloud':
+        return (
+          <Tooltip>
+            <TooltipTrigger className="cursor-help">
+              <Cloud size={16} className="text-primary ml-2" />
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Saved in cloud</p>
+            </TooltipContent>
+          </Tooltip>
+        );
+      case 'local':
+        return (
+          <Tooltip>
+            <TooltipTrigger className="cursor-help">
+              <Database size={16} className="text-muted-foreground ml-2" />
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Saved in browser</p>
+            </TooltipContent>
+          </Tooltip>
+        );
+      case 'both':
+        return (
+          <Tooltip>
+            <TooltipTrigger className="cursor-help">
+              <div className="flex">
+                <Cloud size={16} className="text-primary ml-2" />
+                <Database size={16} className="text-muted-foreground ml-2" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>Saved in cloud and in browser</p>
+            </TooltipContent>
+          </Tooltip>
+        );
+    }
+  };
+
   return (
     <>
       <header className="flex h-16 shrink-0 items-center gap-2">
@@ -86,7 +128,23 @@ export function ContentHubPage() {
             </BreadcrumbList>
           </Breadcrumb>
         </div>
-        <div className="ml-auto mr-4">
+        <div className="ml-auto mr-4 flex items-center gap-2">
+          {isDirty && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  {currentDraft.storageLocation === 'cloud' || currentDraft.storageLocation === 'both'
+                    ? 'Changes will auto-save to cloud'
+                    : 'Changes will auto-save locally'}
+                </>
+              )}
+            </span>
+          )}
           <Button
             size="sm"
             onClick={handleSave}
@@ -105,9 +163,9 @@ export function ContentHubPage() {
         </div>
 
         {/* Sidebar with drafts list - simplified to 3 cards */}
-        <div className="w-full lg:w-2/5 space-y-4 grid grid-rows-3 gap-4">
-          <Card className="row-span-1 gap-2">
-            <CardHeader className="pb-2">
+        <div className="w-full lg:w-2/5 space-y-4 grid grid-rows-3 gap-4 h-[calc(100vh-10rem)]">
+          <Card className="row-span-1 flex flex-col overflow-hidden">
+            <CardHeader className="pb flex-shrink-0">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xl">Files</CardTitle>
                 <Button size="sm" onClick={handleNewDraft} className="gap-1">
@@ -116,78 +174,86 @@ export function ContentHubPage() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-y-auto flex-grow">
               {isLoading ? (
                 <div className="flex justify-center p-4">
                   <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
               ) : savedDrafts.length > 0 ? (
                 <ul className="divide-y">
-                  {savedDrafts.map((draft) => (
-                    <li key={draft.id} className="py-2">
-                      <Button
-                        variant="ghost"
-                        className={`w-full justify-between align-middle text-left p-3 py-5 rounded-none ${currentDraft.id === draft.id ? 'bg-muted' : ''
-                          }`}
-                        onClick={() => handleLoadDraft(draft.id!)}
-                      >
-                        <div className="flex gap-2 items-start">
-                          <FileText size={18} className="mt-2 mr-0.5 size-5" />
-                          <div>
-                            <p className="font-medium">
-                              {truncateString(draft.title || "Untitled", 40)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatDateString(draft.lastSaved)}
-                            </p>
+                  {savedDrafts
+                    .slice()
+                    .sort((a, b) => new Date(b.lastSaved).getTime() - new Date(a.lastSaved).getTime())
+                    .map((draft) => (
+                      <li key={draft.id} className="py-2">
+                        <Button
+                          variant="ghost"
+                          className={`w-full justify-between align-middle text-left p-3 py-5 rounded-none ${currentDraft.id === draft.id ? 'bg-muted' : ''
+                            }`}
+                          onClick={() => handleLoadDraft(draft.id!)}
+                        >
+                          <div className="flex gap-2 items-start">
+                            <FileText size={18} className="mt-2 mr-0.5 size-5" />
+                            <div>
+                              <div className="flex items-center">
+                                <p className="font-medium">
+                                  {truncateString(draft.title || "Untitled", 40)}
+                                </p>
+                                <span className="cursor-help">
+                                  {getStorageIcon(draft.storageLocation)}
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDateString(draft.lastSaved)}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex gap-4">
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                className="p-0 h-auto hover:bg-transparent"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteDraft(draft.id!);
-                                }}
-                              >
-                                <Trash size={18} className="text-muted-foreground hover:text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This action cannot be undone. This will permanently delete your
-                                  draft "{draft.title || "Untitled"}".
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
+                          <div className="flex gap-4">
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  className="p-0 h-auto hover:bg-transparent"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    confirmDeleteDraft();
+                                    handleDeleteDraft(draft.id!);
                                   }}
-                                  className="bg-destructive hover:bg-destructive/90"
                                 >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                          <Button
-                            variant="ghost"
-                            className="p-0 h-auto hover:bg-transparent"
-                          >
-                            <ArrowRightCircleIcon size={18} className="text-muted-foreground hover:text-primary" />
-                          </Button>
-                        </div>
-                      </Button>
-                    </li>
-                  ))}
+                                  <Trash size={18} className="text-muted-foreground hover:text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This action cannot be undone. This will permanently delete your
+                                    draft "{draft.title || "Untitled"}".
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      confirmDeleteDraft();
+                                    }}
+                                    className="bg-destructive hover:bg-destructive/90"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                            <Button
+                              variant="ghost"
+                              className="p-0 h-auto hover:bg-transparent"
+                            >
+                              <ArrowRightCircleIcon size={18} className="text-muted-foreground hover:text-primary" />
+                            </Button>
+                          </div>
+                        </Button>
+                      </li>
+                    ))}
                 </ul>
               ) : (
                 <div className="p-4 text-center text-muted-foreground">
@@ -198,22 +264,22 @@ export function ContentHubPage() {
             </CardContent>
           </Card>
 
-          <Card className="row-span-1">
-            <CardHeader>
+          <Card className="row-span-1 flex flex-col overflow-hidden">
+            <CardHeader className="flex-shrink-0">
               <CardTitle className="text-xl">Insights & Suggestions</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-y-auto flex-grow">
               <p className="text-muted-foreground text-sm">
                 Content analytics and AI-powered suggestions will be available soon.
               </p>
             </CardContent>
           </Card>
 
-          <Card className="row-span-1">
-            <CardHeader>
+          <Card className="row-span-1 flex flex-col overflow-hidden">
+            <CardHeader className="flex-shrink-0">
               <CardTitle className="text-xl">Preview</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-y-auto flex-grow">
               <p className="text-muted-foreground text-sm">
                 Live content preview will be available soon.
               </p>
