@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { loadDrafts, newDraft, loadDraft, saveDraft, deleteDraft } from '../../store/slices/editorSlice';
+import { useEditorStore } from '../../store/useEditorStore';
 import ContentEditor from '../../components/editor/ContentEditor';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -25,25 +24,35 @@ import {
 } from "../../components/ui/alert-dialog";
 
 export function ContentHubPage() {
-  const dispatch = useAppDispatch();
-  const { savedDrafts, isLoading, currentDraft, isSaving, isDirty } = useAppSelector((state) => state.editor);
+  const {
+    savedDrafts,
+    isLoading,
+    currentDraft,
+    isSaving,
+    isDirty,
+    loadDrafts,
+    newDraft,
+    loadDraft,
+    saveDraft,
+    deleteDraft
+  } = useEditorStore();
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
 
   // Load saved drafts on initial render
   useEffect(() => {
-    dispatch(loadDrafts());
-  }, [dispatch]);
+    loadDrafts();
+  }, [loadDrafts]);
 
   const handleNewDraft = () => {
-    dispatch(newDraft());
+    newDraft();
   };
 
   const handleLoadDraft = (draftId: string) => {
-    dispatch(loadDraft(draftId));
+    loadDraft(draftId);
   };
 
   const handleSave = () => {
-    dispatch(saveDraft(currentDraft));
+    saveDraft();
   };
 
   const handleDeleteDraft = (draftId: string) => {
@@ -52,20 +61,8 @@ export function ContentHubPage() {
 
   const confirmDeleteDraft = () => {
     if (draftToDelete) {
-      // Dispatch the delete action to remove from localStorage
-      dispatch(deleteDraft(draftToDelete));
+      deleteDraft(draftToDelete);
       setDraftToDelete(null);
-
-      // FUTURE INTEGRATION: When connecting to backend, replace the above with proper API call
-      // Example:
-      // dispatch(deleteDraft(draftToDelete))
-      //   .unwrap()
-      //   .then(() => {
-      //     // Success handling
-      //   })
-      //   .catch((error) => {
-      //     // Error handling
-      //   });
     }
   };
 

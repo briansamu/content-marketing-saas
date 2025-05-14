@@ -4,8 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import TextAlign from '@tiptap/extension-text-align';
 import { Link as TiptapLink } from '@tiptap/extension-link';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { updateContent, updateTitle, saveDraft } from '../../store/slices/editorSlice';
+import { useEditorStore } from '../../store/useEditorStore';
 import { Card, CardContent, CardFooter, CardHeader } from '../ui/card';
 import { Input } from '../ui/input';
 import { AlertCircle, Save } from 'lucide-react';
@@ -81,8 +80,7 @@ const CustomLink = TiptapLink.extend({
 });
 
 export function ContentEditor() {
-  const dispatch = useAppDispatch();
-  const { currentDraft, isSaving, error, isDirty } = useAppSelector((state) => state.editor);
+  const { currentDraft, isSaving, error, isDirty, updateContent, updateTitle, saveDraft } = useEditorStore();
   const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
   const [editorHeight, setEditorHeight] = useState<string>('400px');
   const [isMobile, setIsMobile] = useState(false);
@@ -130,7 +128,7 @@ export function ContentEditor() {
     content: currentDraft.content,
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
-      dispatch(updateContent(html));
+      updateContent(html);
 
       // Reset autosave timer on each content update
       if (autoSaveTimer) {
@@ -284,12 +282,12 @@ export function ContentEditor() {
   }, [autoSaveTimer]);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    dispatch(updateTitle(e.target.value));
+    updateTitle(e.target.value);
   };
 
   const handleSave = () => {
     if (isDirty) {
-      dispatch(saveDraft(currentDraft));
+      saveDraft();
     }
   };
 

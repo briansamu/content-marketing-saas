@@ -3,11 +3,8 @@ import Login from './pages/Login/Login'
 import Register from './pages/Register/Register'
 import { ThemeProvider } from './components/theme-provider'
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from 'react-router'
-import { Provider } from 'react-redux'
-import { store } from './store'
 import { useEffect, ReactNode } from 'react'
-import { useAppDispatch, useAppSelector } from './store/hooks'
-import { fetchCurrentUser } from './store/slices/authSlice'
+import { useAuthStore } from './store/useAuthStore'
 import AppLayout from './pages/App/AppLayout'
 import DashboardOverview from './pages/Dashboard/DashboardOverview'
 import NotFound from './pages/NotFound'
@@ -15,13 +12,12 @@ import ContentHubPage from './pages/ContentHub/ContentHubPage'
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAppSelector(state => state.auth);
+  const { isAuthenticated, isLoading, fetchCurrentUser } = useAuthStore();
   const location = useLocation();
-  const dispatch = useAppDispatch();
 
   useEffect(() => {
-    dispatch(fetchCurrentUser());
-  }, [dispatch]);
+    fetchCurrentUser();
+  }, [fetchCurrentUser]);
 
   if (isLoading) {
     // You could return a loading spinner here
@@ -36,26 +32,8 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   return <>{children}</>;
 };
 
-// App component that wraps everything with Redux
+// App component
 function App() {
-  return (
-    <Provider store={store}>
-      <AppContent />
-    </Provider>
-  );
-}
-
-// Separate component to use Redux hooks
-function AppContent() {
-  const dispatch = useAppDispatch();
-
-  // Check for user authentication when app loads
-  useEffect(() => {
-    if (localStorage.getItem('token')) {
-      dispatch(fetchCurrentUser());
-    }
-  }, [dispatch]);
-
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <BrowserRouter>
@@ -90,6 +68,11 @@ function AppContent() {
       </BrowserRouter>
     </ThemeProvider>
   );
+}
+
+// Check for user authentication when app loads
+if (localStorage.getItem('token')) {
+  useAuthStore.getState().fetchCurrentUser();
 }
 
 export default App;

@@ -29,7 +29,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "./ui/sidebar"
-import { useAppSelector } from "../store/hooks"
+import { useAuthStore } from "../store/useAuthStore"
 
 const data = {
   navMain: [
@@ -247,7 +247,7 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user } = useAppSelector(state => state.auth);
+  const { user } = useAuthStore();
 
   // Get user data or provide default values if not available
   const userData = {
