@@ -7,11 +7,15 @@ import { Link as TiptapLink } from '@tiptap/extension-link';
 import { useEditorStore } from '../../store/useEditorStore';
 import { Card, CardContent, CardFooter, CardHeader } from '../ui/card';
 import { Input } from '../ui/input';
-import { AlertCircle, Save } from 'lucide-react';
+import { AlertCircle, Save, SpellCheck } from 'lucide-react';
 import EditorToolbar from './EditorToolbar';
 import { formatDateString, calculateReadingTime } from '../../lib/utils';
 import { Button } from '../ui/button';
 import './editor.css';
+import { useSpellcheck } from '../../hooks/useSpellcheck';
+import SpellcheckMenu from './SpellcheckMenu';
+import SpellcheckIndicator from './SpellcheckIndicator';
+import { SpellcheckExtension } from './extensions/SpellcheckExtension';
 
 // Create an enhanced Link extension that properly handles exiting links
 const CustomLink = TiptapLink.extend({
@@ -124,6 +128,7 @@ export function ContentEditor() {
         types: ['heading', 'paragraph'],
       }),
       CustomLink, // Use our enhanced link extension
+      SpellcheckExtension, // Add spellcheck extension
     ],
     content: currentDraft.content,
     onUpdate: ({ editor }) => {
@@ -141,6 +146,10 @@ export function ContentEditor() {
       }, 3000);
 
       setAutoSaveTimer(timer);
+
+      // Reset spellcheck timer on content change
+      // This automatically triggers the spellcheck after typing pause
+      checkSpelling();
     },
     onSelectionUpdate: ({ editor }) => {
       // Update link focus styles when selection changes
@@ -159,7 +168,14 @@ export function ContentEditor() {
         }
       });
     },
+    onBlur: () => {
+      // Force spellcheck on editor blur
+      checkSpelling(true);
+    },
   });
+
+  // Initialize spellcheck hook
+  const { isChecking, errors, checkSpelling, applySuggestion, rejectSuggestion } = useSpellcheck(editor);
 
   // Update editor content when currentDraft changes
   useEffect(() => {
@@ -167,6 +183,17 @@ export function ContentEditor() {
       editor.commands.setContent(currentDraft.content);
     }
   }, [editor, currentDraft.id, currentDraft.content]);
+
+  // Update spellcheck errors when they change
+  useEffect(() => {
+    if (editor && errors.length > 0) {
+      console.log('Applying spellcheck errors to editor:', errors);
+      editor.commands.setSpellcheckErrors(errors);
+    } else if (editor) {
+      console.log('Clearing spellcheck errors');
+      editor.commands.clearSpellcheckErrors();
+    }
+  }, [editor, errors]);
 
   // Calculate and update the editor height
   useEffect(() => {
@@ -291,6 +318,28 @@ export function ContentEditor() {
     }
   };
 
+  // Manual spellcheck trigger
+  const handleManualSpellcheck = () => {
+    checkSpelling(true);
+  };
+
+  // Test function to manually add a test error
+  const handleTestErrorHighlight = () => {
+    if (!editor) return;
+
+    // Create a test error for debugging
+    const testError = {
+      offset: 0,
+      token: editor.getText().split(' ')[0] || 'test', // First word in editor
+      type: 'spelling',
+      suggestions: ['TEST_SUGGESTION'],
+      editId: 'test-id-123'
+    };
+
+    console.log('Adding test error for:', testError.token);
+    editor.commands.setSpellcheckErrors([testError]);
+  };
+
   return (
     <Card ref={cardRef} className="w-full xs:max-w-2xl 2xl:max-w-full mx-auto border shadow-sm gap-0">
       <CardHeader ref={headerRef} className="space-y-1 px-4 pb-2 gap-0">
@@ -302,20 +351,52 @@ export function ContentEditor() {
         />
       </CardHeader>
       <CardContent className="p-4 pt-0 pb-2">
-        <div ref={toolbarRef}>
+        <div ref={toolbarRef} className="flex flex-col">
           <EditorToolbar
             editor={editor}
             onSave={isMobile ? undefined : handleSave}
             isSaving={isSaving}
             isDirty={isDirty}
           />
+          <div className="flex justify-end -mt-1 mb-1 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1.5 flex items-center"
+              onClick={handleManualSpellcheck}
+              title="Check spelling manually to save API calls"
+            >
+              <SpellCheck size={14} />
+              <span>Check spelling</span>
+              <span className="text-muted-foreground ml-1 hidden sm:inline">(saves API calls)</span>
+            </Button>
+
+            {process.env.NODE_ENV !== 'production' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs bg-orange-100 hover:bg-orange-200 dark:bg-orange-900 dark:hover:bg-orange-800"
+                onClick={handleTestErrorHighlight}
+              >
+                Test Error Highlight
+              </Button>
+            )}
+          </div>
         </div>
         <div
           ref={editorContainerRef}
-          className="border rounded-md p-4 overflow-y-auto"
+          className="border rounded-md p-4 overflow-y-auto relative"
           style={{ height: editorHeight }}
         >
           <EditorContent editor={editor} className="prose dark:prose-invert max-w-none" />
+          <SpellcheckIndicator isChecking={isChecking} />
+          {editor && (
+            <SpellcheckMenu
+              editor={editor}
+              onApplySuggestion={applySuggestion}
+              onRejectSuggestion={rejectSuggestion}
+            />
+          )}
         </div>
       </CardContent>
       <CardFooter ref={footerRef} className="flex justify-between p-4 pt-0">

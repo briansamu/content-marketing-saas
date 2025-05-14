@@ -15,4 +15,9 @@ router.post('/drafts', contentController.saveDraft as express.RequestHandler);
 router.put('/drafts', contentController.saveDraft as express.RequestHandler);
 router.delete('/drafts/:id', contentController.deleteDraft as express.RequestHandler);
 
+// Spellcheck endpoints
+router.post('/spellcheck', contentController.spellcheck as express.RequestHandler);
+router.post('/spellcheck/accept/:editId', contentController.acceptSpellcheckEdit as express.RequestHandler);
+router.post('/spellcheck/reject/:editId', contentController.rejectSpellcheckEdit as express.RequestHandler);
+
 export default router;
