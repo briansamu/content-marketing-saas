@@ -163,7 +163,7 @@ export function ContentHubPage() {
         </div>
 
         {/* Sidebar with drafts list - simplified to 3 cards */}
-        <div className="w-full lg:w-2/5 space-y-4 grid grid-rows-3 gap-4 h-[calc(100vh-8.6rem)]">
+        <div className="w-full lg:w-2/5 space-y-4 grid grid-rows-3 gap-2 h-[calc(100vh-8.6rem)]">
           <Card className="row-span-1 flex flex-col overflow-hidden">
             <CardHeader className="pb flex-shrink-0">
               <div className="flex items-center justify-between">
