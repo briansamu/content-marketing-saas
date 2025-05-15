@@ -1,10 +1,11 @@
 import express from 'express';
 import contentController from '../controllers/contentController.js';
-import { authenticateJWT } from '../middleware/authMiddleware.js';
+import { isAuthenticated } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.use(authenticateJWT as express.RequestHandler);
+// Use session authentication only
+router.use(isAuthenticated as express.RequestHandler);
 
 router.get('/create', contentController.createContent as express.RequestHandler);
 

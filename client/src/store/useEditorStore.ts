@@ -53,7 +53,7 @@ const saveLocalDrafts = (drafts: ContentDraft[]) => {
 };
 
 // API base URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   currentDraft: {
@@ -172,38 +172,34 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       // Try to save to the backend first
       let savedToCloud = false;
       let cloudId: string | undefined = undefined;
-      const token = localStorage.getItem('token');
 
-      // If we have a token and the draft has a numeric ID or no ID, try to save to cloud
-      if (token) {
-        try {
-          // Determine if this is a cloud draft (has numeric ID) or a new/local draft
-          const isCloudDraft = draftToSave.id && !draftToSave.id.startsWith('draft-');
-          const cloudEndpoint = `${API_BASE_URL}/api/content/drafts`;
+      try {
+        // Determine if this is a cloud draft (has numeric ID) or a new/local draft
+        const isCloudDraft = draftToSave.id && !draftToSave.id.startsWith('draft-');
+        const cloudEndpoint = `${API_BASE_URL}/api/content/drafts`;
 
-          const response = await fetch(cloudEndpoint, {
-            method: isCloudDraft ? 'PUT' : 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              ...draftToSave,
-              // Only send the ID if it's a cloud ID (not client-generated)
-              id: isCloudDraft ? draftToSave.id : undefined
-            }),
-          });
+        const response = await fetch(cloudEndpoint, {
+          method: isCloudDraft ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include', // Include cookies for session
+          body: JSON.stringify({
+            ...draftToSave,
+            // Only send the ID if it's a cloud ID (not client-generated)
+            id: isCloudDraft ? draftToSave.id : undefined
+          }),
+        });
 
-          if (response.ok) {
-            const data = await response.json();
-            // Update with server data
-            cloudId = data.draft.id;
-            savedToCloud = true;
-          }
-        } catch (cloudError) {
-          console.error('Failed to save to cloud, falling back to local storage', cloudError);
-          // Continue to local storage fallback
+        if (response.ok) {
+          const data = await response.json();
+          // Update with server data
+          cloudId = data.draft.id;
+          savedToCloud = true;
         }
+      } catch (cloudError) {
+        console.error('Failed to save to cloud, falling back to local storage', cloudError);
+        // Continue to local storage fallback
       }
 
       // Important: Start with the current savedDrafts from state to preserve cloud-only drafts
@@ -317,33 +313,25 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      // Load from localStorage first
       const localDrafts = getLocalDrafts();
-
-      // Try to load from backend
       let cloudDrafts: ContentDraft[] = [];
-      const token = localStorage.getItem('token');
 
-      if (token) {
-        try {
-          const response = await fetch(`${API_BASE_URL}/api/content/drafts`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
+      // Try to fetch cloud drafts using session auth
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/content/drafts`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include', // Include cookies for session
+        });
 
-          if (response.ok) {
-            const data = await response.json();
-            cloudDrafts = data.drafts.map((draft: ContentDraft) => ({
-              ...draft,
-              storageLocation: 'cloud' as const
-            }));
-            console.log('Loaded cloud drafts:', cloudDrafts.length);
-          }
-        } catch (cloudError) {
-          console.error('Failed to load from cloud, using local drafts only', cloudError);
+        if (response.ok) {
+          const data = await response.json();
+          cloudDrafts = data.drafts || [];
         }
+      } catch (cloudError) {
+        console.error('Failed to fetch cloud drafts', cloudError);
+        // Continue with local drafts only
       }
 
       // Create a map of drafts by ID for easier merging
@@ -398,54 +386,51 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      // Try to load from backend first
-      let draft: ContentDraft | null = null;
-      let source: 'cloud' | 'local' = 'local';
-      const token = localStorage.getItem('token');
+      // Determine if this is a cloud draft (has numeric ID) or a local draft
+      const isCloudDraft = !draftId.startsWith('draft-');
+      let draftData: ContentDraft | null = null;
 
-      if (token) {
+      // Try to load from cloud if it's a cloud draft
+      if (isCloudDraft) {
         try {
           const response = await fetch(`${API_BASE_URL}/api/content/drafts/${draftId}`, {
             headers: {
-              'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
+            credentials: 'include', // Include cookies for session
           });
 
           if (response.ok) {
             const data = await response.json();
-            draft = {
-              ...data.draft,
-              storageLocation: 'cloud'
-            };
-            source = 'cloud';
+            draftData = data.draft;
           }
         } catch (cloudError) {
-          console.error('Failed to load from cloud, trying local storage', cloudError);
+          console.error('Failed to load cloud draft', cloudError);
+          // Continue to local fallback
         }
       }
 
       // If not found in cloud or cloud fetch failed, try local storage
-      if (!draft) {
+      if (!draftData) {
         const drafts = getLocalDrafts();
-        draft = drafts.find(d => d.id === draftId) || null;
+        draftData = drafts.find(d => d.id === draftId) || null;
       }
 
-      if (!draft) {
+      if (!draftData) {
         throw new Error('Draft not found in cloud or local storage');
       }
 
       // If we found it in the cloud but also have a local copy, mark as both
-      if (source === 'cloud') {
+      if (isCloudDraft) {
         const localDrafts = getLocalDrafts();
         const localDraft = localDrafts.find(d => d.id === draftId);
         if (localDraft) {
-          draft.storageLocation = 'both';
+          draftData.storageLocation = 'both';
         }
       }
 
       set({
-        currentDraft: draft,
+        currentDraft: draftData,
         isLoading: false,
         isDirty: false
       });
@@ -475,24 +460,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
       // Try to delete from backend if it's a cloud draft
       if (isCloudDraft) {
-        const token = localStorage.getItem('token');
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/content/drafts/${draftId}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include', // Include cookies for session
+          });
 
-        if (token) {
-          try {
-            const response = await fetch(`${API_BASE_URL}/api/content/drafts/${draftId}`, {
-              method: 'DELETE',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-            });
-
-            if (!response.ok) {
-              console.error('Failed to delete from cloud, but continuing with local deletion');
-            }
-          } catch (cloudError) {
-            console.error('Failed to delete from cloud', cloudError);
+          if (!response.ok) {
+            console.error('Failed to delete from cloud, but continuing with local deletion');
           }
+        } catch (cloudError) {
+          console.error('Failed to delete from cloud', cloudError);
         }
       }
 
