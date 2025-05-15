@@ -20,4 +20,10 @@ router.post('/spellcheck', contentController.spellcheck as express.RequestHandle
 router.post('/spellcheck/accept/:editId', contentController.acceptSpellcheckEdit as express.RequestHandler);
 router.post('/spellcheck/reject/:editId', contentController.rejectSpellcheckEdit as express.RequestHandler);
 
+// Ignored errors endpoints
+router.get('/spellcheck/ignored', contentController.getIgnoredErrors as express.RequestHandler);
+router.post('/spellcheck/ignored', contentController.addIgnoredError as express.RequestHandler);
+router.delete('/spellcheck/ignored/:id', contentController.removeIgnoredError as express.RequestHandler);
+router.delete('/spellcheck/ignored', contentController.clearIgnoredErrors as express.RequestHandler);
+
 export default router;

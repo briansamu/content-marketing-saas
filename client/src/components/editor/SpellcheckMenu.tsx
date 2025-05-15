@@ -9,10 +9,10 @@ import { cn } from '../../lib/utils';
 interface SpellcheckMenuProps {
   editor: Editor;
   onApplySuggestion: (offset: number, suggestion: string) => void;
-  onRejectSuggestion?: (offset: number) => void;
+  onIgnoreError?: (error: SpellcheckError) => void;
 }
 
-export function SpellcheckMenu({ editor, onApplySuggestion, onRejectSuggestion }: SpellcheckMenuProps) {
+export function SpellcheckMenu({ editor, onApplySuggestion, onIgnoreError }: SpellcheckMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedError, setSelectedError] = useState<SpellcheckError | null>(null);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
@@ -145,10 +145,10 @@ export function SpellcheckMenu({ editor, onApplySuggestion, onRejectSuggestion }
     }
   };
 
-  // Handle rejecting a suggestion
-  const handleRejectClick = () => {
-    if (selectedError && onRejectSuggestion) {
-      onRejectSuggestion(selectedError.offset);
+  // Handle ignoring an error
+  const handleIgnoreClick = () => {
+    if (selectedError && onIgnoreError) {
+      onIgnoreError(selectedError);
       setIsOpen(false);
     }
   };
@@ -183,28 +183,26 @@ export function SpellcheckMenu({ editor, onApplySuggestion, onRejectSuggestion }
             </span>
           </div>
           <div className="flex items-center">
-            {onRejectSuggestion && (
-              <>
-                <Button
-                  onClick={handleRejectClick}
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 p-0 mr-1"
-                  title="Ignore suggestion"
-                >
-                  <EyeOff size={12} />
-                </Button>
-                <Button
-                  onClick={() => setIsOpen(false)}
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 -mr-1 p-0"
-                  title="Close"
-                >
-                  <X size={12} />
-                </Button>
-              </>
+            {onIgnoreError && (
+              <Button
+                onClick={handleIgnoreClick}
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 p-0 mr-1"
+                title="Permanently ignore this error"
+              >
+                <EyeOff size={12} />
+              </Button>
             )}
+            <Button
+              onClick={() => setIsOpen(false)}
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 p-0"
+              title="Dismiss menu"
+            >
+              <X size={12} />
+            </Button>
           </div>
         </div>
 

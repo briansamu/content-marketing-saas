@@ -18,6 +18,14 @@ interface CachedResult {
   timestamp: number;
 }
 
+interface IgnoredError {
+  id: number;
+  user_id: number;
+  token: string;
+  type: string;
+  created_at: string;
+}
+
 // Cache configuration
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 const DEBOUNCE_DELAY = 5000; // 5 seconds
@@ -27,10 +35,143 @@ const MAX_CACHE_ITEMS = 50; // Maximum number of items to keep in cache
 export function useSpellcheck(editor: Editor | null) {
   const [isChecking, setIsChecking] = useState(false);
   const [errors, setErrors] = useState<SpellcheckResult[]>([]);
+  const [ignoredErrors, setIgnoredErrors] = useState<IgnoredError[]>([]);
   const [lastCheckedContent, setLastCheckedContent] = useState<string>('');
   const [lastCheckedHash, setLastCheckedHash] = useState<string>('');
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
+  // Load ignored errors from API on component mount
+  useEffect(() => {
+    loadIgnoredErrors();
+  }, []);
+
+  // Load ignored errors from API
+  const loadIgnoredErrors = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('No authentication token found for loading ignored errors');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/content/spellcheck/ignored`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load ignored errors: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.success && data.ignoredErrors) {
+        setIgnoredErrors(data.ignoredErrors);
+        console.log(`Loaded ${data.ignoredErrors.length} ignored spelling/grammar errors from server`);
+      }
+    } catch (e) {
+      console.warn('Failed to load ignored errors:', e);
+    }
+  }, [API_BASE_URL]);
+
+  // Add an error to the ignored list
+  const addToIgnored = useCallback(async (error: SpellcheckResult) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('No authentication token found for adding ignored error');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/content/spellcheck/ignored`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          token: error.token,
+          type: error.type
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to add ignored error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.success && data.ignoredError) {
+        // Add to state
+        setIgnoredErrors(prev => {
+          // Check if already exists to avoid duplicates
+          const exists = prev.some(e => e.token === error.token && e.type === error.type);
+          if (exists) return prev;
+          return [...prev, data.ignoredError];
+        });
+
+        // Remove this error from current errors
+        setErrors(prev => prev.filter(e => !(e.token === error.token && e.type === error.type)));
+      }
+    } catch (e) {
+      console.warn('Failed to add ignored error:', e);
+    }
+  }, [API_BASE_URL]);
+
+  // Remove an error from the ignored list
+  const removeFromIgnored = useCallback(async (id: number) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('No authentication token found for removing ignored error');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/content/spellcheck/ignored/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to remove ignored error: ${response.status}`);
+      }
+
+      // Update local state after successful API call
+      setIgnoredErrors(prev => prev.filter(e => e.id !== id));
+    } catch (e) {
+      console.warn('Failed to remove ignored error:', e);
+    }
+  }, [API_BASE_URL]);
+
+  // Clear all ignored errors
+  const clearAllIgnored = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('No authentication token found for clearing ignored errors');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/content/spellcheck/ignored`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to clear ignored errors: ${response.status}`);
+      }
+
+      // Clear local state after successful API call
+      setIgnoredErrors([]);
+    } catch (e) {
+      console.warn('Failed to clear ignored errors:', e);
+    }
+  }, [API_BASE_URL]);
 
   // Clear timer when component unmounts
   useEffect(() => {
@@ -138,6 +279,8 @@ export function useSpellcheck(editor: Editor | null) {
     if (cachedResult && (Date.now() - cachedResult.timestamp < CACHE_TTL)) {
       console.log('Using cached spellcheck result from',
         new Date(cachedResult.timestamp).toLocaleTimeString());
+
+      // We don't need to filter out ignored errors here - the server already does this
       setErrors(cachedResult.errors);
       setLastCheckedContent(content);
       setLastCheckedHash(contentHash);
@@ -185,6 +328,7 @@ export function useSpellcheck(editor: Editor | null) {
           return isValid;
         });
 
+        // The server already filters out ignored errors, so we don't need to do it here
         setErrors(validErrors);
       } else {
         setErrors([]);
@@ -194,7 +338,7 @@ export function useSpellcheck(editor: Editor | null) {
       const updatedCache = cleanCache({
         ...cache,
         [contentHash]: {
-          errors: validErrors,
+          errors: validErrors, // Store errors in cache
           timestamp: Date.now()
         }
       });
@@ -270,6 +414,9 @@ export function useSpellcheck(editor: Editor | null) {
         }
       });
 
+      // Add this error to the ignored list when user rejects it
+      await addToIgnored(error);
+
       // Remove this error from the local errors list
       if (response.ok) {
         setErrors(prev => prev.filter(err => err.offset !== errorOffset));
@@ -280,7 +427,7 @@ export function useSpellcheck(editor: Editor | null) {
       console.error('Error rejecting suggestion:', error);
       return false;
     }
-  }, [API_BASE_URL, errors]);
+  }, [API_BASE_URL, errors, addToIgnored]);
 
   // Debounced spellcheck function
   const checkSpelling = useCallback((force = false) => {
@@ -467,10 +614,14 @@ export function useSpellcheck(editor: Editor | null) {
   return {
     isChecking,
     errors,
+    ignoredErrors,
     checkSpelling,
     applySuggestion,
     rejectSuggestion,
     clearErrors,
-    clearCache
+    clearCache,
+    addToIgnored,
+    removeFromIgnored,
+    clearAllIgnored
   };
 } 

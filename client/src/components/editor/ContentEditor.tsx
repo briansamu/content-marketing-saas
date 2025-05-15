@@ -4,6 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import TextAlign from '@tiptap/extension-text-align';
 import { Link as TiptapLink } from '@tiptap/extension-link';
+import Underline from '@tiptap/extension-underline';
 import { useEditorStore } from '../../store/useEditorStore';
 import { Card, CardContent, CardFooter, CardHeader } from '../ui/card';
 import { Input } from '../ui/input';
@@ -15,6 +16,7 @@ import './editor.css';
 import { useSpellcheck } from '../../hooks/useSpellcheck';
 import SpellcheckMenu from './SpellcheckMenu';
 import SpellcheckIndicator from './SpellcheckIndicator';
+import SpellcheckSettings from './SpellcheckSettings';
 import { SpellcheckExtension } from './extensions/SpellcheckExtension';
 
 // Create an enhanced Link extension that properly handles exiting links
@@ -129,6 +131,7 @@ export function ContentEditor() {
       }),
       CustomLink, // Use our enhanced link extension
       SpellcheckExtension, // Add spellcheck extension
+      Underline, // Add underline extension
     ],
     content: currentDraft.content,
     onUpdate: ({ editor }) => {
@@ -175,7 +178,17 @@ export function ContentEditor() {
   });
 
   // Initialize spellcheck hook
-  const { isChecking, errors, checkSpelling, applySuggestion, rejectSuggestion } = useSpellcheck(editor);
+  const {
+    isChecking,
+    errors,
+    ignoredErrors,
+    checkSpelling,
+    applySuggestion,
+    rejectSuggestion,
+    addToIgnored,
+    removeFromIgnored,
+    clearAllIgnored
+  } = useSpellcheck(editor);
 
   // Update editor content when currentDraft changes
   useEffect(() => {
@@ -342,6 +355,12 @@ export function ContentEditor() {
             isDirty={isDirty}
           />
           <div className="flex justify-end -mt-1 mb-1 gap-2">
+            <SpellcheckSettings
+              ignoredErrors={ignoredErrors}
+              onRemoveIgnoredError={removeFromIgnored}
+              onClearAllIgnored={clearAllIgnored}
+              onRefresh={async () => checkSpelling(true)}
+            />
             <Button
               variant="outline"
               size="sm"
@@ -365,7 +384,7 @@ export function ContentEditor() {
             <SpellcheckMenu
               editor={editor}
               onApplySuggestion={applySuggestion}
-              onRejectSuggestion={rejectSuggestion}
+              onIgnoreError={addToIgnored}
             />
           )}
         </div>
@@ -375,6 +394,9 @@ export function ContentEditor() {
           {currentDraft.wordCount} words • {calculateReadingTime(currentDraft.wordCount)}
           {currentDraft.lastSaved && (
             <> • Last saved: {formatDateString(currentDraft.lastSaved)}</>
+          )}
+          {ignoredErrors.length > 0 && (
+            <> • {ignoredErrors.length} ignored spelling/grammar issues</>
           )}
         </div>
         {error && (

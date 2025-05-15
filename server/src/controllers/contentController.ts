@@ -1,5 +1,5 @@
 import { AuthRequest } from "../middleware/authMiddleware.js";
-import { Content, User } from "../models/index.js";
+import { Content, User, IgnoredError } from "../models/index.js";
 import logger from "../utils/logger.js";
 import { Response } from "express";
 import { Model } from "sequelize";
@@ -24,6 +24,15 @@ interface SpellcheckError {
   token: string;
   type: string;
   suggestions: string[];
+}
+
+// Interface for ignored error
+interface IgnoredErrorInterface {
+  id: number;
+  user_id: number;
+  token: string;
+  type: string;
+  created_at: Date;
 }
 
 // Cache for spellcheck results to minimize API calls
@@ -67,6 +76,33 @@ const generateCacheKey = (userId: number, content: string): string => {
 
 // Sapling API Service instance
 const saplingApiService = new SaplingApiService();
+
+// Check if an error is in the user's ignored list
+const isErrorIgnored = (error: SpellcheckError, ignoredErrors: IgnoredErrorInterface[]): boolean => {
+  return ignoredErrors.some(ignored =>
+    ignored.token === error.token && ignored.type === error.type
+  );
+};
+
+// Filter out ignored errors from a list of spellcheck errors
+const filterIgnoredErrors = (errors: SpellcheckError[], ignoredErrors: IgnoredErrorInterface[]): SpellcheckError[] => {
+  return errors.filter(error => !isErrorIgnored(error, ignoredErrors));
+};
+
+// Load a user's ignored errors
+const loadIgnoredErrors = async (userId: number): Promise<IgnoredErrorInterface[]> => {
+  try {
+    const ignoredErrors = await IgnoredError.findAll({
+      where: { user_id: userId }
+    }) as unknown as IgnoredErrorInterface[];
+
+    logger.info(`Loaded ${ignoredErrors.length} ignored errors for user ${userId}`);
+    return ignoredErrors;
+  } catch (error) {
+    logger.error('Error loading ignored errors:', error);
+    return [];
+  }
+};
 
 const createContent = async (req, res) => {
   try {
@@ -359,9 +395,16 @@ const spellcheck = async (req: AuthRequest, res: Response) => {
           errorCount: cachedResult.errors.length,
           age: Math.round((Date.now() - cachedResult.timestamp) / 1000) + 's'
         });
+
+        // Load user's ignored errors from database
+        const ignoredErrors = await loadIgnoredErrors(req.user.id);
+
+        // Filter out ignored errors before returning
+        const filteredErrors = filterIgnoredErrors(cachedResult.errors, ignoredErrors);
+
         return res.status(200).json({
           success: true,
-          errors: cachedResult.errors
+          errors: filteredErrors
         });
       } else {
         // Remove expired cache entry
@@ -480,21 +523,28 @@ const spellcheck = async (req: AuthRequest, res: Response) => {
       // Continue with empty errors array
     }
 
-    // Cache the result
+    // Cache the result (store all errors, including those that might be ignored)
     spellcheckCache.set(cacheKey, {
       errors,
       timestamp: Date.now()
     });
 
+    // Load user's ignored errors from database
+    const ignoredErrors = await loadIgnoredErrors(req.user.id);
+
+    // Filter out ignored errors
+    const filteredErrors = filterIgnoredErrors(errors, ignoredErrors);
+
     logger.info('Spellcheck complete', {
       userId: req.user.id,
-      errorCount: errors.length,
+      totalErrors: errors.length,
+      filteredErrors: filteredErrors.length,
       cached: true
     });
 
     return res.status(200).json({
       success: true,
-      errors
+      errors: filteredErrors
     });
   } catch (error) {
     logger.error('Spellcheck error:', error);
@@ -564,6 +614,162 @@ const rejectSpellcheckEdit = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// Get all ignored errors for the current user
+const getIgnoredErrors = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const ignoredErrors = await IgnoredError.findAll({
+      where: { user_id: req.user.id }
+    });
+
+    return res.status(200).json({
+      success: true,
+      ignoredErrors
+    });
+  } catch (error) {
+    logger.error('Error fetching ignored errors:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching ignored errors',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+// Add a new ignored error
+const addIgnoredError = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const { token, type } = req.body;
+
+    if (!token || !type) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token and type are required'
+      });
+    }
+
+    // Check if already exists
+    const existing = await IgnoredError.findOne({
+      where: {
+        user_id: req.user.id,
+        token,
+        type
+      }
+    });
+
+    if (existing) {
+      return res.status(200).json({
+        success: true,
+        message: 'Error already ignored',
+        ignoredError: existing
+      });
+    }
+
+    // Create new record
+    const ignoredError = await IgnoredError.create({
+      user_id: req.user.id,
+      token,
+      type
+    } as any);  // Using 'as any' to bypass TypeScript check since created_at has a default value
+
+    return res.status(201).json({
+      success: true,
+      message: 'Error ignored successfully',
+      ignoredError
+    });
+  } catch (error) {
+    logger.error('Error adding ignored error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error adding ignored error',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+// Remove an ignored error
+const removeIgnoredError = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const { id } = req.params;
+
+    const ignoredError = await IgnoredError.findOne({
+      where: {
+        id,
+        user_id: req.user.id
+      }
+    });
+
+    if (!ignoredError) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ignored error not found'
+      });
+    }
+
+    await ignoredError.destroy();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Ignored error removed successfully'
+    });
+  } catch (error) {
+    logger.error('Error removing ignored error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error removing ignored error',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+// Clear all ignored errors for a user
+const clearIgnoredErrors = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    await IgnoredError.destroy({
+      where: { user_id: req.user.id }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'All ignored errors cleared successfully'
+    });
+  } catch (error) {
+    logger.error('Error clearing ignored errors:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error clearing ignored errors',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
 export default {
   createContent,
   getDrafts,
@@ -572,5 +778,9 @@ export default {
   deleteDraft,
   spellcheck,
   acceptSpellcheckEdit,
-  rejectSpellcheckEdit
+  rejectSpellcheckEdit,
+  getIgnoredErrors,
+  addIgnoredError,
+  removeIgnoredError,
+  clearIgnoredErrors
 } as Record<string, (req: AuthRequest, res: Response) => Promise<any>>;
