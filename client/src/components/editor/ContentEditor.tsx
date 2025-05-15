@@ -184,7 +184,6 @@ export function ContentEditor() {
     ignoredErrors,
     checkSpelling,
     applySuggestion,
-    rejectSuggestion,
     addToIgnored,
     removeFromIgnored,
     clearAllIgnored

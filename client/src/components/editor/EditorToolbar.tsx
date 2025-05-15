@@ -8,6 +8,7 @@ import {
   ListOrdered,
   Undo,
   Redo,
+  Underline,
   Type,
   AlignLeft,
   AlignCenter,
@@ -79,6 +80,12 @@ export function EditorToolbar({ editor, className, onSave, isSaving, isDirty }: 
         label="Italic"
         onClick={() => editor.chain().focus().toggleItalic().run()}
         isActive={editor.isActive('italic')}
+      />
+      <EditorToolbarButton
+        icon={<Underline size={18} />}
+        label="Underline"
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        isActive={editor.isActive('underline')}
       />
       <EditorToolbarButton
         icon={<Strikethrough size={18} />}
