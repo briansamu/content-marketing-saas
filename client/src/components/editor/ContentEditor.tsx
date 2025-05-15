@@ -323,23 +323,6 @@ export function ContentEditor() {
     checkSpelling(true);
   };
 
-  // Test function to manually add a test error
-  const handleTestErrorHighlight = () => {
-    if (!editor) return;
-
-    // Create a test error for debugging
-    const testError = {
-      offset: 0,
-      token: editor.getText().split(' ')[0] || 'test', // First word in editor
-      type: 'spelling',
-      suggestions: ['TEST_SUGGESTION'],
-      editId: 'test-id-123'
-    };
-
-    console.log('Adding test error for:', testError.token);
-    editor.commands.setSpellcheckErrors([testError]);
-  };
-
   return (
     <Card ref={cardRef} className="w-full xs:max-w-2xl 2xl:max-w-full mx-auto border shadow-sm gap-0">
       <CardHeader ref={headerRef} className="space-y-1 px-4 pb-2 gap-0">
@@ -364,23 +347,11 @@ export function ContentEditor() {
               size="sm"
               className="text-xs gap-1.5 flex items-center"
               onClick={handleManualSpellcheck}
-              title="Check spelling manually to save API calls"
+              title="Check spelling"
             >
               <SpellCheck size={14} />
               <span>Check spelling</span>
-              <span className="text-muted-foreground ml-1 hidden sm:inline">(saves API calls)</span>
             </Button>
-
-            {process.env.NODE_ENV !== 'production' && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs bg-orange-100 hover:bg-orange-200 dark:bg-orange-900 dark:hover:bg-orange-800"
-                onClick={handleTestErrorHighlight}
-              >
-                Test Error Highlight
-              </Button>
-            )}
           </div>
         </div>
         <div
