@@ -71,15 +71,15 @@ export function SpellcheckSettings({
   return (
     <>
       <Button
-        variant="outline"
-        size="sm"
-        className="text-xs gap-1.5 flex items-center"
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 p-0 relative"
         onClick={() => setIsOpen(true)}
+        title="Spelling Settings"
       >
-        <Settings size={14} />
-        <span>Spelling Settings</span>
+        <Settings size={16} />
         {ignoredErrors.length > 0 && (
-          <span className="ml-1 bg-muted px-1.5 py-0.5 rounded-full text-[10px]">
+          <span className="absolute -top-1 -right-1 bg-muted px-1 py-0.5 rounded-full text-[10px] flex items-center justify-center min-w-[16px] h-4">
             {ignoredErrors.length}
           </span>
         )}

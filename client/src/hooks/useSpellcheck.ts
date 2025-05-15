@@ -41,10 +41,85 @@ export function useSpellcheck(editor: Editor | null) {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
+  // Add a ref to track if ignored errors list has changed since last check
+  const ignoredErrorsRef = useRef<string>('');
+
+  // Filter errors that have been ignored
+  const filterIgnoredErrors = useCallback((errors: SpellcheckResult[]): SpellcheckResult[] => {
+    return errors.filter(error =>
+      !ignoredErrors.some(ignored =>
+        ignored.token === error.token && ignored.type === error.type
+      )
+    );
+  }, [ignoredErrors]);
+
   // Load ignored errors from API on component mount
   useEffect(() => {
     loadIgnoredErrors();
   }, []);
+
+  // Load cache from local storage
+  const getCache = useCallback(() => {
+    try {
+      const cacheJson = localStorage.getItem('spellcheck_cache');
+      if (cacheJson) {
+        return JSON.parse(cacheJson) as Record<string, CachedResult>;
+      }
+    } catch (e) {
+      console.warn('Failed to load spellcheck cache:', e);
+    }
+    return {} as Record<string, CachedResult>;
+  }, []);
+
+  // Save cache to local storage
+  const saveCache = useCallback((cache: Record<string, CachedResult>) => {
+    try {
+      localStorage.setItem('spellcheck_cache', JSON.stringify(cache));
+    } catch (e) {
+      console.warn('Failed to save spellcheck cache:', e);
+    }
+  }, []);
+
+  // Update all cached results to respect current ignored errors
+  const updateCacheWithIgnoredErrors = useCallback(() => {
+    try {
+      const cache = getCache();
+      const updatedCache: Record<string, CachedResult> = {};
+
+      // Apply the current ignored errors list to each cached result
+      Object.entries(cache).forEach(([key, value]) => {
+        updatedCache[key] = {
+          ...value,
+          errors: filterIgnoredErrors(value.errors)
+        };
+      });
+
+      saveCache(updatedCache);
+      console.log('Updated cache with current ignored errors');
+    } catch (e) {
+      console.warn('Failed to update cache with ignored errors:', e);
+    }
+  }, [getCache, saveCache, filterIgnoredErrors]);
+
+  // Update ignoredErrorsRef and cache when ignoredErrors change
+  useEffect(() => {
+    // Create a fingerprint of the ignored errors to detect changes
+    const errorFingerprint = ignoredErrors
+      .map(err => `${err.token}:${err.type}`)
+      .sort()
+      .join('|');
+
+    // Only update if the fingerprint has changed
+    if (errorFingerprint !== ignoredErrorsRef.current) {
+      ignoredErrorsRef.current = errorFingerprint;
+
+      // Update cache with new ignored errors
+      updateCacheWithIgnoredErrors();
+
+      // Clear cache hash to force a refresh next time
+      setLastCheckedHash('');
+    }
+  }, [ignoredErrors, updateCacheWithIgnoredErrors]);
 
   // Load ignored errors from API
   const loadIgnoredErrors = useCallback(async () => {
@@ -193,28 +268,6 @@ export function useSpellcheck(editor: Editor | null) {
     return hash.toString(16);
   }, []);
 
-  // Load cache from local storage
-  const getCache = useCallback(() => {
-    try {
-      const cacheJson = localStorage.getItem('spellcheck_cache');
-      if (cacheJson) {
-        return JSON.parse(cacheJson) as Record<string, CachedResult>;
-      }
-    } catch (e) {
-      console.warn('Failed to load spellcheck cache:', e);
-    }
-    return {} as Record<string, CachedResult>;
-  }, []);
-
-  // Save cache to local storage
-  const saveCache = useCallback((cache: Record<string, CachedResult>) => {
-    try {
-      localStorage.setItem('spellcheck_cache', JSON.stringify(cache));
-    } catch (e) {
-      console.warn('Failed to save spellcheck cache:', e);
-    }
-  }, []);
-
   // Clean old entries from cache
   const cleanCache = useCallback((cache: Record<string, CachedResult>) => {
     const now = Date.now();
@@ -266,9 +319,15 @@ export function useSpellcheck(editor: Editor | null) {
     // Generate a hash of the content for cache lookup
     const contentHash = hashText(plainText);
 
-    // Skip if content hasn't changed substantially
-    if (contentHash === lastCheckedHash) {
-      console.log('Content hash unchanged, skipping spellcheck');
+    // Create a fingerprint of the current ignored errors
+    const currentIgnoredErrorsFingerprint = ignoredErrors
+      .map(err => `${err.token}:${err.type}`)
+      .sort()
+      .join('|');
+
+    // Skip if content hasn't changed substantially and ignored errors list hasn't changed
+    if (contentHash === lastCheckedHash && currentIgnoredErrorsFingerprint === ignoredErrorsRef.current) {
+      console.log('Content and ignored errors unchanged, skipping spellcheck');
       return;
     }
 
@@ -280,8 +339,9 @@ export function useSpellcheck(editor: Editor | null) {
       console.log('Using cached spellcheck result from',
         new Date(cachedResult.timestamp).toLocaleTimeString());
 
-      // We don't need to filter out ignored errors here - the server already does this
-      setErrors(cachedResult.errors);
+      // Apply current ignored errors filter to cached results
+      const filteredErrors = filterIgnoredErrors(cachedResult.errors);
+      setErrors(filteredErrors);
       setLastCheckedContent(content);
       setLastCheckedHash(contentHash);
       return;
@@ -352,7 +412,7 @@ export function useSpellcheck(editor: Editor | null) {
     } finally {
       setIsChecking(false);
     }
-  }, [API_BASE_URL, extractPlainText, hashText, lastCheckedHash, getCache, cleanCache, saveCache]);
+  }, [API_BASE_URL, extractPlainText, hashText, lastCheckedHash, ignoredErrors, ignoredErrorsRef, getCache, cleanCache, saveCache, filterIgnoredErrors]);
 
   // Accept a suggestion from Sapling
   const acceptSuggestion = useCallback(async (errorOffset: number, suggestion: string) => {

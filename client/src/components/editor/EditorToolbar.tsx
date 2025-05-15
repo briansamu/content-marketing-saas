@@ -21,7 +21,8 @@ import {
   TextIcon,
   ListFilter,
   AlignHorizontalDistributeCenter,
-  History
+  History,
+  SpellCheck
 } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import EditorToolbarButton from './EditorToolbarButton';
@@ -29,6 +30,15 @@ import { cn } from '../../lib/utils';
 import { useEffect, useState } from 'react';
 import { Button } from '../ui/button';
 import LinkDialog from './LinkDialog';
+import SpellcheckSettings from './SpellcheckSettings';
+
+interface IgnoredError {
+  id: number;
+  user_id: number;
+  token: string;
+  type: string;
+  created_at: string;
+}
 
 interface EditorToolbarProps {
   editor: Editor | null;
@@ -36,14 +46,40 @@ interface EditorToolbarProps {
   onSave?: () => void;
   isSaving?: boolean;
   isDirty?: boolean;
+  onSpellcheck?: () => void | Promise<void>;
+  isChecking?: boolean;
+  ignoredErrors?: IgnoredError[];
+  onRemoveIgnoredError?: (id: number) => Promise<void>;
+  onClearAllIgnored?: () => Promise<void>;
 }
 
 type TabType = 'text' | 'heading' | 'lists' | 'align' | 'other';
 
-export function EditorToolbar({ editor, className, onSave, isSaving, isDirty }: EditorToolbarProps) {
+export function EditorToolbar({
+  editor,
+  className,
+  onSave,
+  isSaving,
+  isDirty,
+  onSpellcheck,
+  isChecking,
+  ignoredErrors = [],
+  onRemoveIgnoredError,
+  onClearAllIgnored
+}: EditorToolbarProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('text');
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+
+  // Wrapper function that converts onSpellcheck to a Promise function
+  const handleSpellcheck = async (): Promise<void> => {
+    if (onSpellcheck) {
+      const result = onSpellcheck();
+      if (result instanceof Promise) {
+        await result;
+      }
+    }
+  };
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -218,17 +254,40 @@ export function EditorToolbar({ editor, className, onSave, isSaving, isDirty }: 
           {textControls}
         </div>
 
-        {onSave && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5 shrink-0 ml-1 mr-0"
-            onClick={onSave}
-            disabled={!isDirty || isSaving}
-          >
-            {isSaving ? "Saving..." : "Save"}
-          </Button>
-        )}
+        <div className="flex items-center gap-1 shrink-0 ml-1 mr-0">
+          {onSpellcheck && onRemoveIgnoredError && onClearAllIgnored && (
+            <>
+              <SpellcheckSettings
+                ignoredErrors={ignoredErrors}
+                onRemoveIgnoredError={onRemoveIgnoredError}
+                onClearAllIgnored={onClearAllIgnored}
+                onRefresh={handleSpellcheck}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 p-0"
+                onClick={onSpellcheck}
+                title="Check spelling"
+                disabled={isChecking}
+              >
+                <SpellCheck size={16} />
+              </Button>
+            </>
+          )}
+
+          {onSave && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={onSave}
+              disabled={!isDirty || isSaving}
+            >
+              {isSaving ? "Saving..." : "Save"}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Separator className="my-1" />
@@ -304,6 +363,27 @@ export function EditorToolbar({ editor, className, onSave, isSaving, isDirty }: 
           {getTabContent()}
         </div>
       </div>
+
+      {onSpellcheck && onRemoveIgnoredError && onClearAllIgnored && (
+        <div className="p-1 border-b flex justify-center gap-2">
+          <SpellcheckSettings
+            ignoredErrors={ignoredErrors}
+            onRemoveIgnoredError={onRemoveIgnoredError}
+            onClearAllIgnored={onClearAllIgnored}
+            onRefresh={handleSpellcheck}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 p-0"
+            onClick={onSpellcheck}
+            title="Check spelling"
+            disabled={isChecking}
+          >
+            <SpellCheck size={16} />
+          </Button>
+        </div>
+      )}
     </div>
   );
 

@@ -8,7 +8,7 @@ import Underline from '@tiptap/extension-underline';
 import { useEditorStore } from '../../store/useEditorStore';
 import { Card, CardContent, CardFooter, CardHeader } from '../ui/card';
 import { Input } from '../ui/input';
-import { AlertCircle, Save, SpellCheck } from 'lucide-react';
+import { AlertCircle, Save } from 'lucide-react';
 import EditorToolbar from './EditorToolbar';
 import { formatDateString, calculateReadingTime } from '../../lib/utils';
 import { Button } from '../ui/button';
@@ -16,7 +16,6 @@ import './editor.css';
 import { useSpellcheck } from '../../hooks/useSpellcheck';
 import SpellcheckMenu from './SpellcheckMenu';
 import SpellcheckIndicator from './SpellcheckIndicator';
-import SpellcheckSettings from './SpellcheckSettings';
 import { SpellcheckExtension } from './extensions/SpellcheckExtension';
 
 // Create an enhanced Link extension that properly handles exiting links
@@ -352,25 +351,12 @@ export function ContentEditor() {
             onSave={isMobile ? undefined : handleSave}
             isSaving={isSaving}
             isDirty={isDirty}
+            onSpellcheck={handleManualSpellcheck}
+            isChecking={isChecking}
+            ignoredErrors={ignoredErrors}
+            onRemoveIgnoredError={removeFromIgnored}
+            onClearAllIgnored={clearAllIgnored}
           />
-          <div className="flex justify-end -mt-1 mb-1 gap-2">
-            <SpellcheckSettings
-              ignoredErrors={ignoredErrors}
-              onRemoveIgnoredError={removeFromIgnored}
-              onClearAllIgnored={clearAllIgnored}
-              onRefresh={async () => checkSpelling(true)}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs gap-1.5 flex items-center"
-              onClick={handleManualSpellcheck}
-              title="Check spelling"
-            >
-              <SpellCheck size={14} />
-              <span>Check spelling</span>
-            </Button>
-          </div>
         </div>
         <div
           ref={editorContainerRef}
