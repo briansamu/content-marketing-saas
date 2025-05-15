@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { User } from '../models';
+import logger from '../utils/logger';
 
 // Define user type for type assertions
 type AppUser = {
@@ -26,7 +27,7 @@ export const getUsers = async (req: Request, res: Response) => {
       data: users
     });
   } catch (error) {
-    console.error('Error fetching users:', error);
+    logger.error('Error fetching users:', error);
     return res.status(500).json({
       success: false,
       message: 'Error fetching users',
@@ -62,7 +63,7 @@ export const getUserById = async (req: Request, res: Response) => {
       data: user
     });
   } catch (error) {
-    console.error('Error fetching user:', error);
+    logger.error('Error fetching user:', error);
     return res.status(500).json({
       success: false,
       message: 'Error fetching user',
@@ -122,7 +123,7 @@ export const createUser = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error creating user:', error);
+    logger.error('Error creating user:', error);
     return res.status(500).json({
       success: false,
       message: 'Error creating user',
@@ -173,7 +174,7 @@ export const updateUser = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error updating user:', error);
+    logger.error('Error updating user:', error);
     return res.status(500).json({
       success: false,
       message: 'Error updating user',
@@ -220,7 +221,7 @@ export const deleteUser = async (req: Request, res: Response) => {
       message: 'User deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting user:', error);
+    logger.error('Error deleting user:', error);
     return res.status(500).json({
       success: false,
       message: 'Error deleting user',

@@ -11,8 +11,7 @@ import {
 } from "./ui/card"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
-import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { register } from "../store/slices/authSlice";
+import { useAuthStore } from "../store/useAuthStore";
 
 interface RegisterFormData {
   first_name: string;
@@ -36,8 +35,7 @@ export function RegisterForm({
     company_name: ''
   });
   const [passwordError, setPasswordError] = useState('');
-  const { isLoading, error } = useAppSelector(state => state.auth);
-  const dispatch = useAppDispatch();
+  const { isLoading, error, register } = useAuthStore();
   const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,15 +70,12 @@ export function RegisterForm({
         email: formData.email,
         password: formData.password,
         company_name: formData.company_name,
-        // Add first_name and last_name for internal state reference even though the API doesn't use them directly
-        first_name: formData.first_name,
-        last_name: formData.last_name
       };
 
-      await dispatch(register(registerData)).unwrap();
+      await register(registerData);
       navigate('/login');
     } catch {
-      // Error is already handled in the slice
+      // Error is already handled in the store
       console.error('Registration failed');
     }
   };

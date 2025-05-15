@@ -2,7 +2,8 @@ import { Outlet } from 'react-router';
 import { AppSidebar } from "../../components/app-sidebar";
 import { SidebarInset, SidebarProvider } from "../../components/ui/sidebar";
 
-const DashboardLayout = () => {
+// This component serves as the layout for all routes under '/app'
+const AppLayout = () => {
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -13,4 +14,4 @@ const DashboardLayout = () => {
   );
 };
 
-export default DashboardLayout;
+export default AppLayout; 

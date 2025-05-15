@@ -1,0 +1,238 @@
+/* TipTap Editor Styles */
+
+.ProseMirror {
+  min-height: 300px;
+  padding: 0.5rem;
+  outline: none;
+}
+
+.ProseMirror p {
+  margin-bottom: 1em;
+}
+
+.ProseMirror h1 {
+  font-size: 2em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+}
+
+.ProseMirror h3 {
+  font-size: 1.25em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1em;
+  margin-bottom: 1em;
+}
+
+.ProseMirror ul {
+  list-style-type: disc;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+}
+
+.ProseMirror a {
+  color: #3b82f6;
+  text-decoration: underline;
+  font-weight: 500;
+  border-radius: 2px;
+  padding: 0 2px;
+  transition: background-color 0.2s;
+}
+
+.ProseMirror a:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.ProseMirror a.has-focus {
+  background-color: rgba(59, 130, 246, 0.2);
+  outline: 2px solid rgba(59, 130, 246, 0.3);
+  text-decoration: underline;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid #e2e8f0;
+  padding-left: 1em;
+  margin-left: 0;
+  margin-right: 0;
+  font-style: italic;
+}
+
+.ProseMirror code {
+  background-color: rgba(#616161, 0.1);
+  color: #616161;
+}
+
+.ProseMirror pre {
+  background: #0d0d0d;
+  color: #fff;
+  font-family: 'JetBrainsMono', monospace;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+}
+
+.ProseMirror pre code {
+  color: inherit;
+  padding: 0;
+  background: none;
+  font-size: 0.8rem;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+}
+
+.ProseMirror hr {
+  margin: 1rem 0;
+}
+
+.ProseMirror [data-placeholder]::before {
+  color: #9ca3af;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Text alignment */
+.ProseMirror .text-left {
+  text-align: left;
+}
+
+.ProseMirror .text-center {
+  text-align: center;
+}
+
+.ProseMirror .text-right {
+  text-align: right;
+}
+
+/* Dark mode adjustments */
+:root.dark .ProseMirror {
+  color: #e5e7eb;
+}
+
+:root.dark .ProseMirror a {
+  color: #60a5fa;
+}
+
+:root.dark .ProseMirror a:hover {
+  background-color: rgba(96, 165, 250, 0.15);
+}
+
+:root.dark .ProseMirror a.has-focus {
+  background-color: rgba(96, 165, 250, 0.25);
+  outline: 2px solid rgba(96, 165, 250, 0.3);
+}
+
+:root.dark .ProseMirror blockquote {
+  border-left-color: #4b5563;
+}
+
+:root.dark .ProseMirror code {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #e5e7eb;
+}
+
+/* Spellcheck styles */
+.ProseMirror .spellcheck-error {
+  text-decoration: wavy underline;
+  text-decoration-color: hsl(var(--destructive));
+  text-decoration-skip-ink: none;
+  cursor: pointer;
+  border-radius: 2px;
+  position: relative;
+  transition: all 0.2s ease;
+  background-color: rgba(var(--destructive-rgb), 0.1);
+  padding: 0 1px;
+}
+
+/* Add a subtle hover effect */
+.ProseMirror .spellcheck-error:hover {
+  background-color: rgba(var(--destructive-rgb), 0.2);
+  text-decoration-thickness: 2px;
+}
+
+/* Add active effect when clicked */
+.ProseMirror .spellcheck-error:active {
+  background-color: rgba(var(--destructive-rgb), 0.25);
+}
+
+/* Grammar errors use a different color */
+.ProseMirror .spellcheck-error[data-spellcheck-error*="grammar"] {
+  text-decoration-color: hsl(var(--warning));
+  background-color: rgba(var(--warning-rgb), 0.1);
+}
+
+.ProseMirror .spellcheck-error[data-spellcheck-error*="grammar"]:hover {
+  background-color: rgba(var(--warning-rgb), 0.2);
+}
+
+/* Dark mode spellcheck adjustments - remove if not needed with shadcn UI */
+:root.dark .ProseMirror .spellcheck-error {
+  background-color: rgba(var(--destructive-rgb), 0.15);
+}
+
+:root.dark .ProseMirror .spellcheck-error:hover {
+  background-color: rgba(var(--destructive-rgb), 0.25);
+}
+
+:root.dark .ProseMirror .spellcheck-error[data-spellcheck-error*="grammar"] {
+  background-color: rgba(var(--warning-rgb), 0.15);
+}
+
+:root.dark .ProseMirror .spellcheck-error[data-spellcheck-error*="grammar"]:hover {
+  background-color: rgba(var(--warning-rgb), 0.25);
+}
+
+/* Spellcheck loading indicator */
+.spellcheck-checking {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+  animation: fadeIn 0.3s ease;
+}
+
+/* Dark mode adjustments */
+:root.dark .spellcheck-checking {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Pulse animation for the loading indicator */
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.spellcheck-checking .pulse {
+  animation: pulse 1.5s infinite ease-in-out;
+}

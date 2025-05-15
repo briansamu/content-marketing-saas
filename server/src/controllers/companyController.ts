@@ -1,21 +1,10 @@
 import { Request, Response } from 'express';
 import { Company, User } from '../models';
-
-// Define user type for type assertions
-interface AppUser {
-  id: number;
-  company_id: number;
-  role: string;
-  [key: string]: any;
-}
-
-// Define custom Request type with user property
-interface AuthenticatedRequest extends Request {
-  user?: AppUser;
-}
+import { AuthRequest } from '../middleware/authMiddleware';
+import logger from '../utils/logger';
 
 // Get company details
-export const getCompanyDetails = async (req: AuthenticatedRequest, res: Response) => {
+export const getCompanyDetails = async (req: AuthRequest, res: Response) => {
   try {
     const company_id = req.user?.company_id;
 
@@ -41,7 +30,7 @@ export const getCompanyDetails = async (req: AuthenticatedRequest, res: Response
       data: company
     });
   } catch (error) {
-    console.error('Error fetching company details:', error);
+    logger.error('Error fetching company details:', error);
     return res.status(500).json({
       success: false,
       message: 'Error fetching company details',
@@ -51,7 +40,7 @@ export const getCompanyDetails = async (req: AuthenticatedRequest, res: Response
 };
 
 // Update company details
-export const updateCompanyDetails = async (req: AuthenticatedRequest, res: Response) => {
+export const updateCompanyDetails = async (req: AuthRequest, res: Response) => {
   try {
     const company_id = req.user?.company_id;
 
@@ -94,7 +83,7 @@ export const updateCompanyDetails = async (req: AuthenticatedRequest, res: Respo
       data: company
     });
   } catch (error) {
-    console.error('Error updating company details:', error);
+    logger.error('Error updating company details:', error);
     return res.status(500).json({
       success: false,
       message: 'Error updating company details',
@@ -104,7 +93,7 @@ export const updateCompanyDetails = async (req: AuthenticatedRequest, res: Respo
 };
 
 // Get company settings
-export const getCompanySettings = async (req: AuthenticatedRequest, res: Response) => {
+export const getCompanySettings = async (req: AuthRequest, res: Response) => {
   try {
     const company_id = req.user?.company_id;
 
@@ -132,7 +121,7 @@ export const getCompanySettings = async (req: AuthenticatedRequest, res: Respons
       }
     });
   } catch (error) {
-    console.error('Error fetching company settings:', error);
+    logger.error('Error fetching company settings:', error);
     return res.status(500).json({
       success: false,
       message: 'Error fetching company settings',
@@ -142,7 +131,7 @@ export const getCompanySettings = async (req: AuthenticatedRequest, res: Respons
 };
 
 // Update company settings
-export const updateCompanySettings = async (req: AuthenticatedRequest, res: Response) => {
+export const updateCompanySettings = async (req: AuthRequest, res: Response) => {
   try {
     const company_id = req.user?.company_id;
 
@@ -190,7 +179,7 @@ export const updateCompanySettings = async (req: AuthenticatedRequest, res: Resp
       }
     });
   } catch (error) {
-    console.error('Error updating company settings:', error);
+    logger.error('Error updating company settings:', error);
     return res.status(500).json({
       success: false,
       message: 'Error updating company settings',
@@ -200,7 +189,7 @@ export const updateCompanySettings = async (req: AuthenticatedRequest, res: Resp
 };
 
 // Get company team members
-export const getCompanyTeam = async (req: AuthenticatedRequest, res: Response) => {
+export const getCompanyTeam = async (req: AuthRequest, res: Response) => {
   try {
     const company_id = req.user?.company_id;
 
@@ -222,7 +211,7 @@ export const getCompanyTeam = async (req: AuthenticatedRequest, res: Response) =
       data: team
     });
   } catch (error) {
-    console.error('Error fetching company team:', error);
+    logger.error('Error fetching company team:', error);
     return res.status(500).json({
       success: false,
       message: 'Error fetching company team',
@@ -237,4 +226,4 @@ export default {
   getCompanySettings,
   updateCompanySettings,
   getCompanyTeam
-} as Record<string, (req: AuthenticatedRequest, res: Response) => Promise<any>>;
+} as Record<string, (req: AuthRequest, res: Response) => Promise<any>>;

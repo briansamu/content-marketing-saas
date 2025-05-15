@@ -29,7 +29,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "./ui/sidebar"
-import { useAppSelector } from "../store/hooks"
+import { useAuthStore } from "../store/useAuthStore"
 
 const data = {
   navMain: [
@@ -79,7 +79,7 @@ const data = {
     },
     {
       title: "Creation Hub",
-      url: "/app/creation",
+      url: "/app/content",
       icon: PenTool,
       items: [
         // MVP includes only simple content editor - other creation tools come later
@@ -89,7 +89,7 @@ const data = {
         // },
         {
           title: "Editor",
-          url: "/app/creation/editor",
+          url: "/app/content/editor",
         },
         // {
         //   title: "Templates",
@@ -247,7 +247,7 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user } = useAppSelector(state => state.auth);
+  const { user } = useAuthStore();
 
   // Get user data or provide default values if not available
   const userData = {

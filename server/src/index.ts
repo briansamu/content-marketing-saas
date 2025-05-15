@@ -5,12 +5,14 @@ import bodyParser from "body-parser";
 import multer from "multer";
 import { passport } from "./config/auth.js";
 import { syncDatabase } from "./models/index.js";
+import logger from "./utils/logger";
 
 // Routes
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import companyRoutes from "./routes/companyRoutes.js";
 import trendingTopicRoutes from "./routes/trendingTopicRoutes.js";
+import contentRoutes from "./routes/contentRoutes.js";
 
 dotenv.config();
 
@@ -32,6 +34,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/company", companyRoutes);
 app.use("/api/trending-topics", trendingTopicRoutes);
+app.use("/api/content", contentRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -45,5 +48,5 @@ app.get("/health", (req, res) => {
 const port = process.env.PORT || 8080;
 
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  logger.info(`Server is running on port ${port}`);
 });

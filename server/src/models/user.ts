@@ -2,6 +2,7 @@ import { DataTypes, Model, Optional } from 'sequelize';
 import sequelize from '../config/database';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import logger from '../utils/logger';
 
 // Interface for User attributes
 interface UserAttributes {
@@ -65,8 +66,8 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
     const createOptions = transaction ? { transaction } : {};
 
     // Debug logs to track the company_id
-    console.log('Creating user with userData:', { ...userData, password: '[REDACTED]' });
-    console.log('otherData contains company_id:', otherData.company_id);
+    logger.debug('Creating user with userData:', { ...userData, password: '[REDACTED]' });
+    logger.debug('otherData contains company_id:', otherData.company_id);
 
     return User.create({
       ...otherData,
@@ -188,11 +189,11 @@ User.init({
     // Add a beforeCreate hook to ensure company_id is set
     beforeCreate: (user: any) => {
       // Debug log to see what's happening
-      console.log('Creating user with company_id:', user.company_id);
+      logger.debug('Creating user with company_id:', user.company_id);
 
       // Ensure company_id is set (additional safeguard)
       if (user.company_id === undefined || user.company_id === null) {
-        console.error('Warning: company_id is not set during user creation');
+        logger.warn('Warning: company_id is not set during user creation');
       }
     }
   },

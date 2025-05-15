@@ -8,8 +8,7 @@ import {
   Sparkles,
 } from "lucide-react"
 import { useNavigate } from "react-router"
-import { useAppDispatch } from "../store/hooks"
-import { logout } from "../store/slices/authSlice"
+import { useAuthStore } from "../store/useAuthStore"
 
 import {
   Avatar,
@@ -42,11 +41,11 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
-  const dispatch = useAppDispatch()
+  const { logout } = useAuthStore()
   const navigate = useNavigate()
 
   const handleLogout = () => {
-    dispatch(logout())
+    logout()
     navigate('/login')
   }
 

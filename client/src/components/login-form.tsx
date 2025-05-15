@@ -11,8 +11,7 @@ import {
 } from "./ui/card"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
-import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { login } from "../store/slices/authSlice";
+import { useAuthStore } from "../store/useAuthStore";
 
 export function LoginForm({
   className,
@@ -20,8 +19,7 @@ export function LoginForm({
 }: React.ComponentProps<"div">) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { isLoading, error, isAuthenticated } = useAppSelector(state => state.auth);
-  const dispatch = useAppDispatch();
+  const { isLoading, error, isAuthenticated, login } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -38,10 +36,10 @@ export function LoginForm({
     e.preventDefault();
 
     try {
-      await dispatch(login({ email, password })).unwrap();
+      await login(email, password);
       // No need to redirect here, it will be handled by the isAuthenticated check
     } catch {
-      // Error is already handled in the slice
+      // Error is already handled in the store
       console.error('Login failed');
     }
   };

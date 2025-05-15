@@ -6,6 +6,7 @@ import sequelize from '../config/database';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { Op, QueryTypes } from 'sequelize';
+import logger from '../utils/logger';
 
 // Helper function to get Gravatar URL
 const getGravatarUrl = (email: string): string => {
@@ -96,19 +97,19 @@ export const register = async (req: Request, res: Response) => {
       settings: {} // Ensure settings is initialized
     };
 
-    console.log('Creating company with data:', companyData);
+    logger.info('Creating company with data:', companyData);
 
     const company = await Company.create(companyData, { transaction });
 
     // Get the raw values to make sure ID is accessible
     const companyValues = company.get({ plain: true });
-    console.log('Created company raw values:', companyValues);
+    logger.debug('Created company raw values:', companyValues);
 
     // Debug log to verify company creation
-    console.log('Created company with ID:', company.id);
+    logger.info('Created company with ID:', company.id);
 
     if (!company.id) {
-      console.error('Company ID is undefined or null!');
+      logger.error('Company ID is undefined or null!');
 
       // Try to retrieve the ID directly from the database
       try {
@@ -122,7 +123,7 @@ export const register = async (req: Request, res: Response) => {
         );
 
         if (result && (result as any).id) {
-          console.log('Retrieved company ID directly from database:', (result as any).id);
+          logger.info('Retrieved company ID directly from database:', (result as any).id);
           companyValues.id = (result as any).id;
         } else {
           await transaction.rollback();
@@ -132,7 +133,7 @@ export const register = async (req: Request, res: Response) => {
           });
         }
       } catch (err) {
-        console.error('Error retrieving company ID:', err);
+        logger.error('Error retrieving company ID:', err);
         await transaction.rollback();
         return res.status(500).json({
           success: false,
@@ -146,7 +147,7 @@ export const register = async (req: Request, res: Response) => {
 
     // Get the company ID to use (either from the model or our direct query)
     const companyId = company.id || companyValues.id;
-    console.log('Using company ID for user creation:', companyId);
+    logger.info('Using company ID for user creation:', companyId);
 
     // Create user with company association - using direct assignment for clarity
     const userData = {
@@ -160,12 +161,12 @@ export const register = async (req: Request, res: Response) => {
       verification_token: verificationToken
     };
 
-    console.log('Creating user with company_id:', userData.company_id);
+    logger.info('Creating user with company_id:', userData.company_id);
 
     const user = await User.createWithPassword(userData, transaction);
 
     // Verify the user has the company_id set
-    console.log('Created user:', {
+    logger.debug('Created user:', {
       id: user.id,
       email: user.email,
       company_id: user.company_id
@@ -173,7 +174,7 @@ export const register = async (req: Request, res: Response) => {
 
     // If company_id is still not set, manually update it
     if (!user.company_id) {
-      console.log('User created without company_id, manually updating...');
+      logger.warn('User created without company_id, manually updating...');
       // Force direct database update to ensure it's set
       await sequelize.query(
         'UPDATE users SET company_id = ? WHERE id = ?',
@@ -207,7 +208,7 @@ export const register = async (req: Request, res: Response) => {
   } catch (error) {
     // Rollback transaction if any error occurs
     await transaction.rollback();
-    console.error('Registration error:', error);
+    logger.error('Registration error:', error);
     return res.status(500).json({
       success: false,
       message: 'Registration failed',
@@ -244,7 +245,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
       message: 'Email verification successful'
     });
   } catch (error) {
-    console.error('Email verification error:', error);
+    logger.error('Email verification error:', error);
     return res.status(500).json({
       success: false,
       message: 'Email verification failed',
@@ -285,7 +286,7 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
       message: 'If your email exists in our system, you will receive a password reset link'
     });
   } catch (error) {
-    console.error('Password reset request error:', error);
+    logger.error('Password reset request error:', error);
     return res.status(500).json({
       success: false,
       message: 'Password reset request failed',
@@ -328,7 +329,7 @@ export const resetPassword = async (req: Request, res: Response) => {
       message: 'Password has been reset successfully'
     });
   } catch (error) {
-    console.error('Password reset error:', error);
+    logger.error('Password reset error:', error);
     return res.status(500).json({
       success: false,
       message: 'Password reset failed',
@@ -401,7 +402,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Get current user error:', error);
+    logger.error('Get current user error:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to retrieve user',

@@ -1,11 +1,16 @@
-import { configureStore } from '@reduxjs/toolkit';
-import authReducer from './slices/authSlice';
+// Central export file for all Zustand stores
 
-export const store = configureStore({
-  reducer: {
-    auth: authReducer,
-  },
-});
+import { useAuthStore } from './useAuthStore';
+import { useEditorStore } from './useEditorStore';
 
-export type RootState = ReturnType<typeof store.getState>;
-export type AppDispatch = typeof store.dispatch; 
+// Export stores
+export { useAuthStore, useEditorStore };
+
+// For TypeScript compatibility with existing code
+// These types are deprecated and should be removed when all components are migrated
+export type RootState = {
+  auth: ReturnType<typeof useAuthStore.getState>;
+  editor: ReturnType<typeof useEditorStore.getState>;
+};
+
+export type AppDispatch = () => void; 

@@ -6,6 +6,8 @@ import BrandUser from './brandUser.js';
 import TrendingTopic from './trendingTopic.js';
 import Content from './content.js';
 import ContentAnalytics from './contentAnalytics.js';
+import IgnoredError from './ignoredError.js';
+import logger from '../utils/logger';
 
 // User-Company relationship
 User.belongsTo(Company, { foreignKey: 'company_id' });
@@ -31,12 +33,16 @@ Brand.hasMany(Content, { foreignKey: 'brand_id' });
 ContentAnalytics.belongsTo(Content, { foreignKey: 'content_id' });
 Content.hasMany(ContentAnalytics, { foreignKey: 'content_id' });
 
+// IgnoredError-User relationship
+IgnoredError.belongsTo(User, { foreignKey: 'user_id' });
+User.hasMany(IgnoredError, { foreignKey: 'user_id' });
+
 const syncDatabase = async () => {
   try {
     await sequelize.sync({ alter: true });
-    console.log('Database synchronized successfully');
+    logger.info('Database synchronized successfully');
   } catch (error) {
-    console.error('Error synchronizing database:', error);
+    logger.error('Error synchronizing database:', error);
   }
 };
 
@@ -49,5 +55,6 @@ export {
   TrendingTopic,
   Content,
   ContentAnalytics,
+  IgnoredError,
   syncDatabase
 };
