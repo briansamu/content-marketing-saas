@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Editor } from '@tiptap/react';
 import { SpellcheckError } from './extensions/SpellcheckExtension';
-import { X, Check, AlertCircle } from 'lucide-react';
+import { X, Check, AlertCircle, EyeOff } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
@@ -182,17 +182,30 @@ export function SpellcheckMenu({ editor, onApplySuggestion, onRejectSuggestion }
               {selectedError.type === 'spelling' ? 'Spelling Error' : 'Grammar Error'}
             </span>
           </div>
-          {onRejectSuggestion && (
-            <Button
-              onClick={handleRejectClick}
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5 -mr-1 p-0"
-              title="Ignore suggestion"
-            >
-              <X size={12} />
-            </Button>
-          )}
+          <div className="flex items-center">
+            {onRejectSuggestion && (
+              <>
+                <Button
+                  onClick={handleRejectClick}
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 p-0 mr-1"
+                  title="Ignore suggestion"
+                >
+                  <EyeOff size={12} />
+                </Button>
+                <Button
+                  onClick={() => setIsOpen(false)}
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 -mr-1 p-0"
+                  title="Close"
+                >
+                  <X size={12} />
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         {selectedError.suggestions.length > 0 ? (
