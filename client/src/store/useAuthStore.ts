@@ -36,7 +36,7 @@ interface AuthState {
   fetchCurrentUser: () => Promise<void>;
   register: (userData: RegisterCredentials) => Promise<void>;
   uploadAvatar: (file: File) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   clearError: () => void;
   updateUserAvatar: (avatarUrl: string) => void;
 }
@@ -56,6 +56,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include cookies for session
         body: JSON.stringify({ email, password }),
       });
 
@@ -66,8 +67,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
 
-      // Store token in localStorage
-      localStorage.setItem('token', data.data.token);
+      // Store token in localStorage for backward compatibility
+      if (data.data.token) {
+        localStorage.setItem('token', data.data.token);
+      }
 
       set({ isLoading: false });
 
@@ -81,31 +84,35 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   fetchCurrentUser: async () => {
-    const token = localStorage.getItem('token');
-
-    if (!token) {
-      set({
-        user: null,
-        isAuthenticated: false,
-        error: 'No token found'
-      });
-      return;
-    }
-
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      // First try with session
+      let response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        credentials: 'include', // Include cookies for session
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
       });
 
+      // If session fails, try with token as fallback
+      if (!response.ok && response.status === 401) {
+        const token = localStorage.getItem('token');
+
+        if (token) {
+          response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+          });
+        }
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
-        // If token is invalid, clear it
+        // If authentication fails, clear token
         if (response.status === 401) {
           localStorage.removeItem('token');
         }
@@ -157,6 +164,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include cookies for session
         body: JSON.stringify(userData),
       });
 
@@ -176,26 +184,33 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   uploadAvatar: async (file) => {
-    const token = localStorage.getItem('token');
-
-    if (!token) {
-      set({ error: 'Authentication required' });
-      return;
-    }
-
     set({ isLoading: true, error: null });
 
     try {
       const formData = new FormData();
       formData.append('avatar', file);
 
-      const response = await fetch(`${API_BASE_URL}/api/users/avatar`, {
+      // First try with session
+      let response = await fetch(`${API_BASE_URL}/api/users/avatar`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        credentials: 'include', // Include cookies for session
         body: formData,
       });
+
+      // If session fails, try with token as fallback
+      if (!response.ok && response.status === 401) {
+        const token = localStorage.getItem('token');
+
+        if (token) {
+          response = await fetch(`${API_BASE_URL}/api/users/avatar`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: formData,
+          });
+        }
+      }
 
       const data = await response.json();
 
@@ -214,13 +229,35 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  logout: () => {
-    localStorage.removeItem('token');
-    set({
-      user: null,
-      isAuthenticated: false,
-      error: null
-    });
+  logout: async () => {
+    set({ isLoading: true });
+
+    try {
+      // Call server logout endpoint to clear session
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      // Clear local token
+      localStorage.removeItem('token');
+
+      set({
+        user: null,
+        isAuthenticated: false,
+        error: null,
+        isLoading: false
+      });
+    } catch (error) {
+      // Even if server logout fails, clear local state
+      localStorage.removeItem('token');
+      set({
+        user: null,
+        isAuthenticated: false,
+        error: null,
+        isLoading: false
+      });
+    }
   },
 
   clearError: () => {
@@ -234,7 +271,5 @@ export const useAuthStore = create<AuthState>((set) => ({
   }
 }));
 
-// Initialize by loading user data if a token exists
-if (localStorage.getItem('token')) {
-  useAuthStore.getState().fetchCurrentUser();
-} 
+// Initialize by loading user data if a token exists or session is active
+useAuthStore.getState().fetchCurrentUser(); 

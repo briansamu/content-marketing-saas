@@ -16,7 +16,7 @@ const getGravatarUrl = (email: string): string => {
 
 // Login with email/password
 export const login = (req: Request, res: Response) => {
-  passport.authenticate('local', { session: false }, (err: Error, user: any, info: any) => {
+  passport.authenticate('local', (err: Error, user: any, info: any) => {
     if (err) {
       return res.status(500).json({
         success: false,
@@ -32,18 +32,47 @@ export const login = (req: Request, res: Response) => {
       });
     }
 
-    // Generate token
-    const token = generateToken(user);
-
-    return res.status(200).json({
-      success: true,
-      message: 'Authentication successful',
-      data: {
-        token,
-        user: user.toJSON()
+    // Log in the user with session
+    req.login(user, (loginErr) => {
+      if (loginErr) {
+        return res.status(500).json({
+          success: false,
+          message: 'Session error',
+          error: loginErr.message
+        });
       }
+
+      // Generate token for backwards compatibility
+      const token = generateToken(user);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Authentication successful',
+        data: {
+          token, // Include token for backward compatibility
+          user: user.toJSON()
+        }
+      });
     });
   })(req, res);
+};
+
+// Logout user
+export const logout = (req: Request, res: Response) => {
+  req.logout((err) => {
+    if (err) {
+      return res.status(500).json({
+        success: false,
+        message: 'Logout error',
+        error: err.message
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  });
 };
 
 // Register a new user with associated company
@@ -417,5 +446,6 @@ export default {
   verifyEmail,
   requestPasswordReset,
   resetPassword,
-  getCurrentUser
+  getCurrentUser,
+  logout
 };

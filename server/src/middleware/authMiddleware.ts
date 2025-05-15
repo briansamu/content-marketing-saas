@@ -13,7 +13,7 @@ export interface AppUser {
   [key: string]: any;
 }
 
-// Updated interface to match AppUser
+// Extend Express Request to include user property
 export interface AuthRequest extends Request {
   user?: AppUser;
   brandAccess?: {
@@ -22,7 +22,19 @@ export interface AuthRequest extends Request {
   };
 }
 
-// Middleware to authenticate JWT token
+// Middleware to check if user is authenticated via session
+export const isAuthenticated = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+
+  return res.status(401).json({
+    success: false,
+    message: 'Unauthorized access: not authenticated'
+  });
+};
+
+// Middleware to authenticate JWT token (legacy support)
 export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) => {
   passport.authenticate('jwt', { session: false }, (err, user, info) => {
     if (err) {
@@ -195,6 +207,7 @@ export const hasBrandRole = (requiredRole: string | string[]) => {
 };
 
 export default {
+  isAuthenticated,
   authenticateJWT,
   optionalAuthJWT,
   isAdmin,

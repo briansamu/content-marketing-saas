@@ -1,11 +1,11 @@
 import express from 'express';
 import userController from '../controllers/userController';
-import { authenticateJWT, isAdmin } from '../middleware/authMiddleware';
+import { authenticateJWT, isAuthenticated, isAdmin } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
 // All routes require authentication
-router.use(authenticateJWT as express.RequestHandler);
+router.use(isAuthenticated as express.RequestHandler);
 
 // Route handlers with type assertions
 const getUsers = userController.getUsers as express.RequestHandler;

@@ -1,11 +1,11 @@
 import express from 'express';
 import companyController from '../controllers/companyController';
-import { authenticateJWT, isAdmin } from '../middleware/authMiddleware';
+import { authenticateJWT, isAuthenticated, isAdmin } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
 // All routes require authentication
-router.use(authenticateJWT as express.RequestHandler);
+router.use(isAuthenticated as express.RequestHandler);
 
 // Get company details (all authenticated users)
 router.get('/', companyController.getCompanyDetails as express.RequestHandler);

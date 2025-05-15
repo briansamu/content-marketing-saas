@@ -3,9 +3,11 @@ import cors from "cors";
 import dotenv from "dotenv";
 import bodyParser from "body-parser";
 import multer from "multer";
-import { passport } from "./config/auth.js";
+import passport from "passport";
 import { syncDatabase } from "./models/index.js";
 import logger from "./utils/logger";
+import sessionMiddleware from "./middleware/sessionMiddleware";
+import "./config/auth";
 
 // Routes
 import authRoutes from "./routes/authRoutes.js";
@@ -20,11 +22,18 @@ const app = express();
 const upload = multer();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  credentials: true
+}));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(upload.none());
+
+// Session and authentication middleware
+app.use(sessionMiddleware);
 app.use(passport.initialize());
+app.use(passport.session());
 
 // Sync database
 syncDatabase();

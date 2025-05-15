@@ -19,6 +19,48 @@ const getGravatarUrl = (email: string): string => {
   return `https://www.gravatar.com/avatar/${hash}?d=mp&s=200`;
 };
 
+// Configure serialization for session storage
+passport.serializeUser((user: any, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id: number, done) => {
+  try {
+    // Query the user directly from database
+    const [rows]: any = await sequelize.query(
+      'SELECT * FROM users WHERE id = :id LIMIT 1',
+      {
+        replacements: { id },
+        raw: true
+      }
+    );
+
+    const user = rows && rows.length > 0 ? rows[0] : null;
+
+    if (!user) {
+      return done(null, false);
+    }
+
+    // Add avatar URL if not present
+    if (!user.avatar) {
+      user.avatar = getGravatarUrl(user.email);
+    }
+
+    // Create a plain object with processed data
+    const processedUser = {
+      ...user,
+      toJSON: () => {
+        const { password_hash, reset_token, reset_token_expires, verification_token, ...userWithoutSensitiveData } = user;
+        return userWithoutSensitiveData;
+      }
+    };
+
+    return done(null, processedUser);
+  } catch (error) {
+    return done(error);
+  }
+});
+
 // Configure local strategy for username/password authentication
 passport.use(new LocalStrategy(
   {
