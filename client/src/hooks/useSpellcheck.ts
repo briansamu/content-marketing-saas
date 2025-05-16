@@ -134,7 +134,8 @@ export function useSpellcheck(editor: Editor | null) {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        credentials: 'include' // Include cookies for session authentication
       });
 
       if (!response.ok) {
@@ -143,13 +144,26 @@ export function useSpellcheck(editor: Editor | null) {
 
       const data = await response.json();
       if (data.success && data.ignoredErrors) {
+        const prevIgnoredCount = ignoredErrors.length;
         setIgnoredErrors(data.ignoredErrors);
         console.log(`Loaded ${data.ignoredErrors.length} ignored spelling/grammar errors from server`);
+
+        // If we already have content checked and the ignored errors list changed,
+        // we should reapply the filter to current errors
+        if (lastCheckedContent && prevIgnoredCount !== data.ignoredErrors.length) {
+          console.log('Ignored errors list changed, updating current errors');
+
+          // Filter current errors against the new ignored list
+          setErrors(prev => filterIgnoredErrors(prev));
+
+          // Clear the hash to force a fresh check next time
+          setLastCheckedHash('');
+        }
       }
     } catch (e) {
       console.warn('Failed to load ignored errors:', e);
     }
-  }, [API_BASE_URL]);
+  }, [API_BASE_URL, filterIgnoredErrors, ignoredErrors.length, lastCheckedContent]);
 
   // Add an error to the ignored list
   const addToIgnored = useCallback(async (error: SpellcheckResult) => {
@@ -166,6 +180,7 @@ export function useSpellcheck(editor: Editor | null) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
+        credentials: 'include', // Include cookies for session authentication
         body: JSON.stringify({
           token: error.token,
           type: error.type
@@ -188,6 +203,39 @@ export function useSpellcheck(editor: Editor | null) {
 
         // Remove this error from current errors
         setErrors(prev => prev.filter(e => !(e.token === error.token && e.type === error.type)));
+
+        // Update all cached results to remove this error
+        try {
+          const cache = getCache();
+          let cacheUpdated = false;
+
+          // Go through all cache entries and remove this error
+          Object.entries(cache).forEach(([key, value]) => {
+            const originalErrorCount = value.errors.length;
+
+            // Filter out the newly ignored error from this cache entry
+            const updatedErrors = value.errors.filter(
+              e => !(e.token === error.token && e.type === error.type)
+            );
+
+            // Only update if we actually removed something
+            if (updatedErrors.length !== originalErrorCount) {
+              cache[key] = {
+                ...value,
+                errors: updatedErrors,
+                timestamp: Date.now() // Refresh timestamp
+              };
+              cacheUpdated = true;
+            }
+          });
+
+          if (cacheUpdated) {
+            saveCache(cache);
+            console.log('Updated all cached results after adding ignored error');
+          }
+        } catch (e) {
+          console.warn('Error updating cache after adding ignored error:', e);
+        }
       }
     } catch (e) {
       console.warn('Failed to add ignored error:', e);
@@ -207,7 +255,8 @@ export function useSpellcheck(editor: Editor | null) {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        credentials: 'include' // Include cookies for session authentication
       });
 
       if (!response.ok) {
@@ -234,7 +283,8 @@ export function useSpellcheck(editor: Editor | null) {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        credentials: 'include' // Include cookies for session authentication
       });
 
       if (!response.ok) {
@@ -364,6 +414,7 @@ export function useSpellcheck(editor: Editor | null) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
+        credentials: 'include', // Include cookies for session authentication
         body: JSON.stringify({ text: content })
       });
 
@@ -388,7 +439,12 @@ export function useSpellcheck(editor: Editor | null) {
           return isValid;
         });
 
-        // The server already filters out ignored errors, so we don't need to do it here
+        // Double check that no ignored errors are included in the response
+        // This is a client-side safety check in case the server didn't filter properly
+        validErrors = filterIgnoredErrors(validErrors);
+
+        console.log(`Filtered ${data.errors.length - validErrors.length} ignored errors client-side`);
+
         setErrors(validErrors);
       } else {
         setErrors([]);
@@ -439,7 +495,8 @@ export function useSpellcheck(editor: Editor | null) {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        credentials: 'include' // Include cookies for session authentication
       });
 
       return response.ok;
@@ -471,7 +528,8 @@ export function useSpellcheck(editor: Editor | null) {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        credentials: 'include' // Include cookies for session authentication
       });
 
       // Add this error to the ignored list when user rejects it
@@ -480,6 +538,36 @@ export function useSpellcheck(editor: Editor | null) {
       // Remove this error from the local errors list
       if (response.ok) {
         setErrors(prev => prev.filter(err => err.offset !== errorOffset));
+
+        // Update cache to remove this error
+        try {
+          const contentHash = lastCheckedHash;
+          if (contentHash) {
+            const cache = getCache();
+            const cachedResult = cache[contentHash];
+
+            if (cachedResult) {
+              // Remove the rejected error which is now in ignored list
+              const updatedErrors = cachedResult.errors
+                .filter(err => !(err.offset === errorOffset ||
+                  // Also filter out any other instances of this error token/type
+                  (err.token === error.token && err.type === error.type)
+                ));
+
+              // Update the cache with filtered errors
+              cache[contentHash] = {
+                ...cachedResult,
+                errors: updatedErrors,
+                timestamp: Date.now() // Update timestamp to extend cache life
+              };
+
+              saveCache(cache);
+              console.log('Updated cache after rejecting suggestion');
+            }
+          }
+        } catch (e) {
+          console.warn('Error updating cache after rejecting suggestion:', e);
+        }
       }
 
       return response.ok;
@@ -505,8 +593,10 @@ export function useSpellcheck(editor: Editor | null) {
     // If no changes or empty content, skip check
     if (!contentToCheck && !force) return;
 
-    // If force is true, check immediately, otherwise use debounce
+    // If force is true, check immediately and clear the hash to avoid using cache
     if (force) {
+      // Clear the hash to force a fresh check from the server
+      setLastCheckedHash('');
       performSpellcheck(content);
     } else {
       debounceTimerRef.current = setTimeout(() => {
@@ -651,6 +741,38 @@ export function useSpellcheck(editor: Editor | null) {
 
     // Remove this error from our local list
     setErrors(prev => prev.filter(err => err.offset !== errorOffset));
+
+    // Update cache to remove this error and any ignored errors
+    try {
+      const contentHash = lastCheckedHash;
+      if (contentHash) {
+        const cache = getCache();
+        const cachedResult = cache[contentHash];
+
+        if (cachedResult) {
+          // Remove the accepted error and reapply ignored errors filter
+          const updatedErrors = cachedResult.errors
+            .filter(err => err.offset !== errorOffset) // Remove the accepted error
+            .filter(error => // Filter out all ignored errors
+              !ignoredErrors.some(ignored =>
+                ignored.token === error.token && ignored.type === error.type
+              )
+            );
+
+          // Update the cache with filtered errors
+          cache[contentHash] = {
+            ...cachedResult,
+            errors: updatedErrors,
+            timestamp: Date.now() // Update timestamp to extend cache life
+          };
+
+          saveCache(cache);
+          console.log('Updated cache after accepting suggestion');
+        }
+      }
+    } catch (e) {
+      console.warn('Error updating cache after accepting suggestion:', e);
+    }
 
     // Don't immediately re-run spellcheck - wait for the automatic debounced check
     // This saves an API call and is more cost-effective
