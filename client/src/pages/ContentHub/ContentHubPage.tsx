@@ -23,6 +23,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "../../components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../../components/ui/dialog";
 
 export function ContentHubPage() {
   const {
@@ -45,6 +53,7 @@ export function ContentHubPage() {
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
   const [showDebug, setShowDebug] = useState(false);
   const [keywordTarget, setKeywordTarget] = useState('');
+  const [filesDialogOpen, setFilesDialogOpen] = useState(false);
 
   // Log content suggestions when they change
   useEffect(() => {
@@ -63,10 +72,12 @@ export function ContentHubPage() {
 
   const handleNewDraft = () => {
     newDraft();
+    setFilesDialogOpen(false);
   };
 
   const handleLoadDraft = (draftId: string) => {
     loadDraft(draftId);
+    setFilesDialogOpen(false);
   };
 
   const handleSave = () => {
@@ -203,6 +214,123 @@ export function ContentHubPage() {
               )}
             </span>
           )}
+          {/* Files Button with Modal */}
+          <Dialog open={filesDialogOpen} onOpenChange={setFilesDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1"
+              >
+                <FileText size={16} />
+                Files
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-xl md:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Files</DialogTitle>
+                <DialogDescription>
+                  View and manage your saved content
+                </DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[60vh] overflow-y-auto mt-4">
+                <div className="flex justify-end mb-2">
+                  <Button size="sm" onClick={handleNewDraft} className="gap-1">
+                    <Plus size={16} />
+                    New
+                  </Button>
+                </div>
+                {isLoading ? (
+                  <div className="flex justify-center p-4">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : savedDrafts.length > 0 ? (
+                  <ul className="divide-y">
+                    {savedDrafts
+                      .slice()
+                      .sort((a, b) => new Date(b.lastSaved).getTime() - new Date(a.lastSaved).getTime())
+                      .map((draft) => (
+                        <li key={draft.id} className="py-2">
+                          <div className={`flex justify-between items-center p-3 py-4 ${currentDraft.id === draft.id ? 'bg-muted' : ''}`}>
+                            <Button
+                              variant="ghost" className="flex-1 justify-start text-left py-1 h-auto" onClick={() => handleLoadDraft(draft.id!)}                              >                                <div className="flex gap-2 items-start">                                  <FileText size={18} className="mt-0.5 mr-0.5 size-5" />
+                                <div>
+                                  <div className="flex items-center">
+                                    <p className="font-medium">
+                                      {truncateString(draft.title || "Untitled", 40)}
+                                    </p>
+                                    <span className="cursor-help">
+                                      {getStorageIcon(draft.storageLocation)}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatDateString(draft.lastSaved)}
+                                  </p>
+                                </div>
+                              </div>
+                            </Button>
+                            <div className="flex items-center gap-2 ml-2">
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="p-1 h-8 w-8 rounded-full"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteDraft(draft.id!);
+                                    }}
+                                  >
+                                    <Trash size={16} className="text-muted-foreground hover:text-destructive" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action cannot be undone. This will permanently delete your
+                                      draft "{draft.title || "Untitled"}".
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        confirmDeleteDraft();
+                                      }}
+                                      className="bg-destructive hover:bg-destructive/90"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-1 h-8 w-8 rounded-full"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleLoadDraft(draft.id!);
+                                }}
+                              >
+                                <ArrowRightCircleIcon size={16} className="text-muted-foreground hover:text-primary" />
+                              </Button>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                  </ul>
+                ) : (
+                  <div className="p-4 text-center text-muted-foreground">
+                    <p>No drafts yet</p>
+                    <p className="text-sm">Create a new draft to get started</p>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
           <Button
             size="sm"
             onClick={handleSave}
@@ -229,109 +357,9 @@ export function ContentHubPage() {
           <ContentEditor targetKeyword={keywordTarget} />
         </div>
 
-        {/* Sidebar with drafts list - simplified to 3 cards */}
-        <div className="w-full lg:w-2/5 space-y-4 grid grid-rows-3 gap-2 h-[calc(100vh-8.6rem)]">
-          <Card className="row-span-1 flex flex-col overflow-hidden">
-            <CardHeader className="pb flex-shrink-0">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl">Files</CardTitle>
-                <Button size="sm" onClick={handleNewDraft} className="gap-1">
-                  <Plus size={16} />
-                  New
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0 overflow-y-auto flex-grow">
-              {isLoading ? (
-                <div className="flex justify-center p-4">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              ) : savedDrafts.length > 0 ? (
-                <ul className="divide-y">
-                  {savedDrafts
-                    .slice()
-                    .sort((a, b) => new Date(b.lastSaved).getTime() - new Date(a.lastSaved).getTime())
-                    .map((draft) => (
-                      <li key={draft.id} className="py-2">
-                        <Button
-                          variant="ghost"
-                          className={`w-full justify-between align-middle text-left p-3 py-5 rounded-none ${currentDraft.id === draft.id ? 'bg-muted' : ''
-                            }`}
-                          onClick={() => handleLoadDraft(draft.id!)}
-                        >
-                          <div className="flex gap-2 items-start">
-                            <FileText size={18} className="mt-2 mr-0.5 size-5" />
-                            <div>
-                              <div className="flex items-center">
-                                <p className="font-medium">
-                                  {truncateString(draft.title || "Untitled", 40)}
-                                </p>
-                                <span className="cursor-help">
-                                  {getStorageIcon(draft.storageLocation)}
-                                </span>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDateString(draft.lastSaved)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex gap-4">
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  className="p-0 h-auto hover:bg-transparent"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteDraft(draft.id!);
-                                  }}
-                                >
-                                  <Trash size={18} className="text-muted-foreground hover:text-destructive" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete your
-                                    draft "{draft.title || "Untitled"}".
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      confirmDeleteDraft();
-                                    }}
-                                    className="bg-destructive hover:bg-destructive/90"
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                            <Button
-                              variant="ghost"
-                              className="p-0 h-auto hover:bg-transparent"
-                            >
-                              <ArrowRightCircleIcon size={18} className="text-muted-foreground hover:text-primary" />
-                            </Button>
-                          </div>
-                        </Button>
-                      </li>
-                    ))}
-                </ul>
-              ) : (
-                <div className="p-4 text-center text-muted-foreground">
-                  <p>No drafts yet</p>
-                  <p className="text-sm">Create a new draft to get started</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="row-span-1 flex flex-col overflow-hidden">
+        {/* Sidebar with insights - expanded to full height */}
+        <div className="w-full lg:w-2/5 h-[calc(100vh-8.6rem)]">
+          <Card className="h-full flex flex-col overflow-hidden">
             <CardHeader className="flex-shrink-0">
               <CardTitle className="text-xl flex items-center gap-2">
                 Insights & Suggestions
@@ -532,25 +560,6 @@ export function ContentHubPage() {
               ) : (
                 <p className="text-muted-foreground text-sm">
                   Click the "Analyze Text" button above the editor to see content insights.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="row-span-1 flex flex-col overflow-hidden">
-            <CardHeader className="flex-shrink-0">
-              <CardTitle className="text-xl">Preview</CardTitle>
-            </CardHeader>
-            <CardContent className="overflow-y-auto flex-grow">
-              {analyzedText ? (
-                <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
-                  {analyzedText.split('\n\n').map((paragraph, i) => (
-                    <p key={i}>{paragraph}</p>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-sm">
-                  After analyzing text, a preview will appear here.
                 </p>
               )}
             </CardContent>

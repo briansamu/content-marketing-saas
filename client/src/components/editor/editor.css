@@ -236,3 +236,87 @@
 .spellcheck-checking .pulse {
   animation: pulse 1.5s infinite ease-in-out;
 }
+
+/* Add styling for HTML content in suggestion previews */
+.suggestion-preview {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.suggestion-preview p {
+  margin-bottom: 0.5em;
+}
+
+.suggestion-preview h1, 
+.suggestion-preview h2, 
+.suggestion-preview h3, 
+.suggestion-preview h4, 
+.suggestion-preview h5, 
+.suggestion-preview h6 {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+.suggestion-preview h1 {
+  font-size: 1.5em;
+}
+
+.suggestion-preview h2 {
+  font-size: 1.3em;
+}
+
+.suggestion-preview h3 {
+  font-size: 1.1em;
+}
+
+.suggestion-preview ul, 
+.suggestion-preview ol {
+  margin-left: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.suggestion-preview li {
+  margin-bottom: 0.25em;
+}
+
+.suggestion-preview a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.suggestion-preview code {
+  font-family: monospace;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+.suggestion-preview pre {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.5em;
+  border-radius: 3px;
+  overflow-x: auto;
+}
+
+.suggestion-preview blockquote {
+  border-left: 3px solid rgba(0, 0, 0, 0.1);
+  padding-left: 0.5em;
+  margin-left: 0.5em;
+  font-style: italic;
+}
+
+.suggestion-preview table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.suggestion-preview table th,
+.suggestion-preview table td {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 0.25em 0.5em;
+}
+
+.suggestion-preview table th {
+  background-color: rgba(0, 0, 0, 0.05);
+}

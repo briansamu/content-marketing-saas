@@ -5,6 +5,7 @@ import { Response } from "express";
 import { Model } from "sequelize";
 import SaplingApiService from "../services/saplingApiService.js";
 import SeoApiService from "../services/seoApiService.js";
+import AnthropicApiService from "../services/anthropicApiService.js";
 
 // Interface for Content model instance
 interface ContentInstance extends Model {
@@ -932,14 +933,14 @@ const analyzeKeyword = async (req: AuthRequest, res: Response) => {
       const results = relatedKeywordsResponse.tasks[0].result;
 
       if (results.length > 0) {
-        // Direct keyword structure
+        // Case 1: Check if results have the keyword property directly
         if (results[0].keyword && typeof results[0].keyword === 'string') {
           logger.info('Found direct keyword structure');
           extractedKeywords = results;
         }
-        // Nested keyword structure
+        // Case 2: Check if results have keyword_data with related_keywords
         else if (results[0].keyword_data && results[0].keyword_data.related_keywords) {
-          logger.info('Found nested keyword structure');
+          logger.info('Found nested keyword_data structure');
           extractedKeywords = results[0].keyword_data.related_keywords;
         }
       }
@@ -1002,6 +1003,178 @@ const analyzeKeyword = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// Suggest content rewrites using Anthropic API
+const suggestContentRewrites = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const { content, targetKeywords, existingAnalysis } = req.body;
+
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Content is required'
+      });
+    }
+
+    if (!targetKeywords || !Array.isArray(targetKeywords) || targetKeywords.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Target keywords are required'
+      });
+    }
+
+    // Remove HTML tags for cleaner text
+    const plainText = content.replace(/<[^>]*>/g, ' ').trim();
+
+    logger.info(`Requesting content rewrites for user ${req.user.id} with keywords: ${targetKeywords.join(', ')}`);
+
+    // Define the SeoInsights interface to match the one in AnthropicApiService
+    interface SeoInsights {
+      analyzedKeywords?: string[];
+      relatedKeywords?: Array<{
+        keyword: string;
+        search_volume?: number;
+        competition?: string;
+      }>;
+      readabilityLevel?: string;
+      textSummary?: any;
+    }
+
+    // Get SEO insights to enhance the suggestions
+    let seoInsights: SeoInsights | undefined = undefined;
+
+    // Check if existing analysis is provided in the request
+    if (existingAnalysis &&
+      typeof existingAnalysis === 'object' &&
+      (existingAnalysis.analyzedKeywords || existingAnalysis.relatedKeywords)) {
+
+      logger.info('Using provided existing analysis data');
+
+      // Use the provided analysis data
+      seoInsights = {
+        analyzedKeywords: existingAnalysis.analyzedKeywords || [],
+        relatedKeywords: Array.isArray(existingAnalysis.relatedKeywords)
+          ? existingAnalysis.relatedKeywords
+          : [],
+        readabilityLevel: existingAnalysis.readabilityLevel || 'Unknown',
+        textSummary: existingAnalysis.textSummary || null
+      };
+    } else {
+      // No existing analysis provided, so perform the API calls
+      try {
+        // First get text summary for insights
+        const summaryResponse = await SeoApiService.generateTextSummary(plainText);
+
+        // Get related keywords based on primary target keyword
+        const primaryKeyword = targetKeywords[0]; // Use the first keyword for related keywords
+        const relatedKeywordsResponse = await SeoApiService.getRelatedKeywords(primaryKeyword);
+
+        // Determine readability level
+        const readabilityLevel = getReadabilityLevel(
+          summaryResponse.tasks?.[0]?.result?.[0]?.coleman_liau_index
+        );
+
+        // Extract analyzed keywords from text summary
+        let analyzedKeywords: string[] = [];
+        if (summaryResponse.tasks?.[0]?.result?.[0]?.keyword_density) {
+          const keywordDensity = summaryResponse.tasks[0].result[0].keyword_density as Record<string, number>;
+          analyzedKeywords = Object.entries(keywordDensity)
+            .filter(([k]) => k.length > 2) // Filter out short keywords
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([k]) => k);
+        }
+
+        // Extract related keywords
+        let relatedKeywords: Array<{
+          keyword: string;
+          search_volume?: number;
+          competition?: string;
+        }> = [];
+
+        if (relatedKeywordsResponse.tasks?.[0]?.result) {
+          const results = relatedKeywordsResponse.tasks[0].result;
+
+          if (results.length > 0) {
+            // Case 1: Direct keyword structure
+            if (results[0].keyword && typeof results[0].keyword === 'string') {
+              relatedKeywords = results.map(item => ({
+                keyword: item.keyword,
+                search_volume: item.search_volume || 0,
+                competition: item.competition || 'LOW'
+              }));
+            }
+            // Case 2: Nested keyword_data structure
+            else if (results[0].keyword_data && results[0].keyword_data.related_keywords) {
+              relatedKeywords = results[0].keyword_data.related_keywords.map(item => ({
+                keyword: item.keyword,
+                search_volume: item.search_volume || 0,
+                competition: item.competition || 'LOW'
+              }));
+            }
+          }
+        }
+
+        // Build insights object
+        seoInsights = {
+          analyzedKeywords,
+          relatedKeywords,
+          readabilityLevel,
+          textSummary: summaryResponse.tasks?.[0]?.result?.[0]
+        };
+
+        logger.info('Successfully gathered SEO insights for content rewrite suggestions');
+      } catch (insightsError) {
+        logger.warn('Error getting SEO insights, continuing without them:', insightsError);
+        // Continue without insights if there's an error
+      }
+    }
+
+    // Call Anthropic API for suggestions, passing the SEO insights if available
+    const result = await AnthropicApiService.suggestContentRewrites(plainText, targetKeywords, seoInsights);
+
+    // Process the raw suggestions into structured format
+    const processedSuggestions = AnthropicApiService.processSuggestions(result.suggestions);
+
+    logger.info(`Generated ${processedSuggestions.length} content rewrite suggestions`);
+
+    return res.status(200).json({
+      success: true,
+      suggestions: processedSuggestions,
+      rawSuggestions: result.suggestions,
+      insights: seoInsights ? {
+        analyzedKeywords: seoInsights.analyzedKeywords || [],
+        relatedKeywords: seoInsights.relatedKeywords?.map(k => k.keyword) || [],
+        readabilityLevel: seoInsights.readabilityLevel || 'Unknown'
+      } : null
+    });
+  } catch (error) {
+    logger.error('Error suggesting content rewrites:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error suggesting content rewrites',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+// Helper function to determine readability level from Coleman-Liau index
+const getReadabilityLevel = (colemanLiauIndex: number): string => {
+  if (!colemanLiauIndex && colemanLiauIndex !== 0) return "Unknown";
+
+  if (colemanLiauIndex < 6) return "Elementary";
+  if (colemanLiauIndex < 10) return "Middle School";
+  if (colemanLiauIndex < 14) return "High School";
+  if (colemanLiauIndex < 18) return "College";
+  return "Professional";
+};
+
 export default {
   createContent,
   getDrafts,
@@ -1017,5 +1190,6 @@ export default {
   clearIgnoredErrors,
   generateTextSummary,
   generateContentSuggestions,
-  analyzeKeyword
+  analyzeKeyword,
+  suggestContentRewrites
 } as Record<string, (req: AuthRequest, res: Response) => Promise<any>>;

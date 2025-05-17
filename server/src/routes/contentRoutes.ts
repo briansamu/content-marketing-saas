@@ -32,4 +32,7 @@ router.post('/seo/text-summary', contentController.generateTextSummary as expres
 router.post('/seo/content-suggestions', contentController.generateContentSuggestions as express.RequestHandler);
 router.post('/seo/keyword-analysis', contentController.analyzeKeyword as express.RequestHandler);
 
+// AI content optimization endpoints
+router.post('/ai/suggest-rewrites', contentController.suggestContentRewrites as express.RequestHandler);
+
 export default router;
