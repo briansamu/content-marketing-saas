@@ -108,14 +108,14 @@ const loadIgnoredErrors = async (userId: number): Promise<IgnoredErrorInterface[
 
 const createContent = async (req, res) => {
   try {
-    const { title, textContent, category, source, published_at, url, relevance_score } = req.body;
+    const { title, textContent, category, source, published_at, url, relevance_score, contentType } = req.body;
 
     const content = await Content.create({
       user_id: req.user.id,
       title,
       content: textContent,
       status: 'draft',
-      content_type: 'article',
+      content_type: contentType || 'article',
       seo_score: 0
     });
 
@@ -160,6 +160,7 @@ const getDrafts = async (req: AuthRequest, res: Response) => {
       wordCount: draft.content ? draft.content.split(/\s+/).filter(Boolean).length : 0,
       lastSaved: draft.updated_at,
       status: draft.status,
+      contentType: draft.content_type,
       storageLocation: 'cloud'
     }));
 
@@ -211,6 +212,7 @@ const getDraft = async (req: AuthRequest, res: Response) => {
       wordCount: draft.content ? draft.content.split(/\s+/).filter(Boolean).length : 0,
       lastSaved: draft.updated_at,
       status: draft.status,
+      contentType: draft.content_type,
       storageLocation: 'cloud'
     };
 
@@ -238,7 +240,7 @@ const saveDraft = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const { id, title, content, status } = req.body;
+    const { id, title, content, status, contentType } = req.body;
 
     let draft: ContentInstance;
 
@@ -261,7 +263,8 @@ const saveDraft = async (req: AuthRequest, res: Response) => {
       await existingDraft.update({
         title,
         content,
-        status: status || 'draft'
+        status: status || 'draft',
+        content_type: contentType || existingDraft.content_type || 'article'
       });
 
       draft = existingDraft;
@@ -272,7 +275,7 @@ const saveDraft = async (req: AuthRequest, res: Response) => {
         title,
         content,
         status: status || 'draft',
-        content_type: 'article',
+        content_type: contentType || 'article',
         seo_score: 0
       }) as ContentInstance;
     }
@@ -285,6 +288,7 @@ const saveDraft = async (req: AuthRequest, res: Response) => {
       wordCount: draft.content ? draft.content.split(/\s+/).filter(Boolean).length : 0,
       lastSaved: draft.updated_at,
       status: draft.status,
+      contentType: draft.content_type,
       storageLocation: 'cloud'
     };
 
@@ -298,7 +302,7 @@ const saveDraft = async (req: AuthRequest, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Error saving draft',
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : 'Failed to save draft. Please try again.'
     });
   }
 };

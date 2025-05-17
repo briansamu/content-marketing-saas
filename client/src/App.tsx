@@ -9,6 +9,7 @@ import AppLayout from './pages/App/AppLayout'
 import DashboardOverview from './pages/Dashboard/DashboardOverview'
 import NotFound from './pages/NotFound'
 import ContentHubPage from './pages/ContentHub/ContentHubPage'
+import { DocumentsPage } from './pages/ContentHub/DocumentsPage'
 import { TooltipProvider } from './components/ui/tooltip'
 
 // Protected route component
@@ -51,7 +52,8 @@ function App() {
               <Route path="dashboard/overview" element={<DashboardOverview />} />
 
               {/* Content Creation Hub */}
-              <Route path="content" element={<Navigate to="/app/content/editor" replace />} />
+              <Route path="content" element={<Navigate to="/app/content/documents" replace />} />
+              <Route path="content/documents" element={<DocumentsPage />} />
               <Route path="content/editor" element={<ContentHubPage />} />
 
               {/* Other sections will follow the same pattern */}

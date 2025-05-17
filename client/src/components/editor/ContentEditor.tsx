@@ -8,9 +8,8 @@ import Underline from '@tiptap/extension-underline';
 import { useEditorStore } from '../../store/useEditorStore';
 import { Card, CardContent, CardFooter, CardHeader } from '../ui/card';
 import { Input } from '../ui/input';
-import { AlertCircle, Save, BarChart, Sparkles, Check, X, Wand2 } from 'lucide-react';
+import { Sparkles, Eye, Share, MessageSquare, Type, Video, FileText, BarChart, Wand2 } from 'lucide-react';
 import EditorToolbar from './EditorToolbar';
-import { formatDateString, calculateReadingTime } from '../../lib/utils';
 import { Button } from '../ui/button';
 import './editor.css';
 import { useSpellcheck } from '../../hooks/useSpellcheck';
@@ -24,7 +23,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter
-} from '../ui/dialog';
+} from "../ui/dialog";
 import {
   Tooltip,
   TooltipContent,
@@ -126,6 +125,9 @@ export function ContentEditor({ targetKeyword }: { targetKeyword?: string }) {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLDivElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [showSpellcheckSettings, setShowSpellcheckSettings] = useState(false);
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
 
   // Check if mobile
   useEffect(() => {
@@ -155,7 +157,7 @@ export function ContentEditor({ targetKeyword }: { targetKeyword?: string }) {
         link: false,
       }),
       Placeholder.configure({
-        placeholder: 'Start writing your content here...',
+        placeholder: getPlaceholderForContentType(currentDraft.contentType),
       }),
       TextAlign.configure({
         types: ['heading', 'paragraph'],
@@ -478,15 +480,83 @@ export function ContentEditor({ targetKeyword }: { targetKeyword?: string }) {
     );
   }, [contentRewrites.suggestions, suggestionFilter, showAllSuggestions]);
 
+  // Get the appropriate placeholder for the content type
+  function getPlaceholderForContentType(contentType: string): string {
+    switch (contentType) {
+      case 'social':
+        return 'Write your social media post here...';
+      case 'blog':
+        return 'Start writing your blog post here...';
+      case 'video':
+        return 'Write your video script here...';
+      default:
+        return 'Start writing your content here...';
+    }
+  }
+
+  // Get the appropriate character limit for the content type
+  function getCharacterLimitForContentType(contentType: string): number | null {
+    switch (contentType) {
+      case 'social':
+        return 280; // Twitter character limit
+      default:
+        return null; // No limit for other content types
+    }
+  }
+
+  // Check if the content exceeds the character limit
+  const characterLimit = getCharacterLimitForContentType(currentDraft.contentType);
+  const currentCharacterCount = currentDraft.content
+    ? currentDraft.content.replace(/<[^>]*>/g, '').length
+    : 0;
+  const isOverCharacterLimit = characterLimit ? currentCharacterCount > characterLimit : false;
+
+  // Define functions for preview and social preview
+  const openPreview = () => {
+    // In a real implementation this would open a preview of the content
+    console.log('Opening preview for', currentDraft.contentType);
+    // Show a preview modal with rendered content
+  };
+
+  const openSocialPreview = () => {
+    // In a real implementation this would show a social media post preview
+    console.log('Opening social preview');
+    // Show a social media preview with character count
+  };
+
+  const optimizeForKeyword = () => {
+    // In a real implementation this would trigger AI optimization
+    if (!targetKeyword) return;
+    console.log('Optimizing for keyword:', targetKeyword);
+    // Call the optimization function from the store
+  };
+
+  const handleDiscardChanges = () => {
+    // In a real implementation, this would discard unsaved changes
+    setIsConfirmationOpen(false);
+    console.log('Discarding changes');
+  };
+
   return (
     <Card ref={cardRef} className="w-full xs:max-w-2xl 2xl:max-w-full mx-auto border shadow-sm gap-0">
       <CardHeader ref={headerRef} className="space-y-1 px-4 pb-2 gap-0">
-        <Input
-          placeholder="Enter title..."
-          value={currentDraft.title}
-          onChange={handleTitleChange}
-          className="text-xl font-semibold border-none focus-visible:ring-0 px-3"
-        />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-2 py-1 bg-muted/50 rounded-lg">
+            {getContentTypeIcon(currentDraft.contentType)}
+            <span className="text-sm text-muted-foreground">{getContentTypeName(currentDraft.contentType)}</span>
+          </div>
+          <Input
+            placeholder="Title..."
+            value={currentDraft.title}
+            onChange={handleTitleChange}
+            className="text-xl font-semibold border-none focus-visible:ring-0 px-3 flex-1"
+          />
+        </div>
+        {currentDraft.contentType === 'social' && (
+          <div className={`text-xs text-right ${isOverCharacterLimit ? 'text-red-500' : 'text-muted-foreground'}`}>
+            {currentCharacterCount}/{characterLimit} characters
+          </div>
+        )}
       </CardHeader>
       <CardContent className="p-4 pt-0 pb-2">
         <div ref={toolbarRef} className="flex flex-col">
@@ -547,253 +617,114 @@ export function ContentEditor({ targetKeyword }: { targetKeyword?: string }) {
         </div>
         <div
           ref={editorContainerRef}
-          className="border rounded-md p-4 overflow-y-auto relative"
+          className={`relative overflow-auto border rounded-md p-4 prose prose-sm max-w-none focus-within:outline-none focus-within:ring-1 focus-within:ring-ring ${isOverCharacterLimit ? 'border-red-500' : 'border-input'}`}
           style={{ height: editorHeight }}
         >
-          <EditorContent editor={editor} className="prose dark:prose-invert max-w-none" />
+          {editor && <EditorContent editor={editor} />}
+          {!editor && <p className="text-muted-foreground">Loading editor...</p>}
+
+          {errors.length > 0 && editor && (
+            <SpellcheckMenu
+              editor={editor}
+              errors={errors}
+              onApplySuggestion={applySuggestion}
+              onAddToIgnored={addToIgnored}
+            />
+          )}
+
+          <div className="absolute bottom-2 right-2">
+            <SpellcheckIndicator isChecking={isChecking} errorCount={errors.length} />
+          </div>
         </div>
       </CardContent>
-      <CardFooter ref={footerRef} className="flex justify-between p-4 pt-0">
-        <div className="text-sm text-muted-foreground">
-          {currentDraft.wordCount} words • {calculateReadingTime(currentDraft.wordCount)}
-          {currentDraft.lastSaved && (
-            <> • Last saved: {formatDateString(currentDraft.lastSaved)}</>
-          )}
-          {ignoredErrors.length > 0 && (
-            <> • {ignoredErrors.length} ignored spelling/grammar issues</>
-          )}
+      <CardFooter ref={footerRef} className="flex justify-between pt-2 px-4 pb-3">
+        <div className="text-xs text-muted-foreground">
+          {currentDraft.wordCount} words
         </div>
-        {error && (
-          <div className="text-destructive flex items-center text-sm gap-1">
-            <AlertCircle size={16} />
-            <span>{error}</span>
-          </div>
-        )}
-      </CardFooter>
+        <div className="flex items-center gap-2">
+          <Dialog open={isConfirmationOpen} onOpenChange={setIsConfirmationOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Unsaved Changes</DialogTitle>
+                <DialogDescription>
+                  You have unsaved changes. Do you want to save them before proceeding?
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={handleDiscardChanges}>
+                  Discard
+                </Button>
+                <Button onClick={handleSave}>Save</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-      {/* Floating save button for mobile */}
-      {isMobile && (
-        <div className="fixed bottom-4 right-4 z-50">
-          <Button
-            onClick={handleSave}
-            disabled={!isDirty || isSaving}
-            size="sm"
-            className="shadow-lg rounded-full h-12 w-12 p-0"
-          >
-            <Save size={18} />
-          </Button>
-        </div>
-      )}
-
-      {/* Content rewrite suggestions dialog */}
-      <Dialog open={showRewriteDialog} onOpenChange={setShowRewriteDialog}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles size={18} className="text-primary" />
-              Content Optimization Suggestions for "{targetKeyword}"
-            </DialogTitle>
-            <DialogDescription>
-              These suggestions help optimize your content for the target keyword.
-              Click the apply button to replace the original text with the improved version.
-            </DialogDescription>
-          </DialogHeader>
-
-          {contentRewrites.isLoading ? (
-            <div className="flex flex-col items-center justify-center p-8 space-y-4">
-              <div className="flex flex-col items-center gap-2">
-                <Sparkles size={24} className="animate-pulse text-primary" />
-                <p className="text-sm font-medium">Optimizing your content...</p>
-              </div>
-
-              <div className="w-full max-w-md space-y-3">
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Analyzing content</span>
-                    <span>{isAnalyzing ? "In progress..." : "Complete ✓"}</span>
-                  </div>
-                  <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={`h-full bg-primary transition-all ${isAnalyzing ? "w-1/2" : "w-full"}`}
-                    ></div>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Generating suggestions</span>
-                    <span>{isAnalyzing ? "Waiting..." : contentRewrites.isLoading ? "In progress..." : "Complete ✓"}</span>
-                  </div>
-                  <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={`h-full bg-primary transition-all ${isAnalyzing ? "w-0" :
-                        contentRewrites.isLoading ? "w-1/2" :
-                          "w-full"
-                        }`}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-xs text-muted-foreground mt-4">
-                This may take a moment as we analyze your content and generate tailored suggestions for "{targetKeyword}"
-              </p>
-            </div>
-          ) : contentRewrites.suggestions.length > 0 ? (
-            <div className="space-y-6 pt-2">
-              {/* SEO Insights Used (if available) */}
-              {contentRewrites.insights && (
-                <div className="bg-muted/30 rounded-lg p-3 text-sm">
-                  <h4 className="font-medium mb-2 flex items-center gap-1.5">
-                    <BarChart size={14} className="text-primary" />
-                    Content Insights Used:
-                  </h4>
-                  <div className="space-y-1 text-muted-foreground">
-                    {contentRewrites.insights.readabilityLevel && (
-                      <p>• Current readability level: <span className="font-medium">{contentRewrites.insights.readabilityLevel}</span></p>
-                    )}
-
-                    {contentRewrites.insights?.analyzedKeywords && contentRewrites.insights.analyzedKeywords.length > 0 && (
-                      <p>• Main topics detected: <span className="font-medium">{contentRewrites.insights.analyzedKeywords.join(', ')}</span></p>
-                    )}
-
-                    {contentRewrites.insights?.relatedKeywords && contentRewrites.insights.relatedKeywords.length > 0 && (
-                      <p>• Related keywords: <span className="font-medium">{contentRewrites.insights.relatedKeywords.join(', ')}</span></p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Search and filter for suggestions */}
-              {contentRewrites.suggestions.length > 5 && (
-                <div className="relative mb-4">
-                  <input
-                    type="text"
-                    placeholder="Search suggestions..."
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    value={suggestionFilter}
-                    onChange={(e) => setSuggestionFilter(e.target.value)}
-                  />
-                  <div className="text-xs text-muted-foreground mt-1 px-1 flex justify-between">
-                    <span>
-                      {filteredSuggestions.length} of {contentRewrites.suggestions.length} suggestions shown
-                    </span>
-                    <button
-                      className="text-primary hover:underline"
-                      onClick={() => setShowAllSuggestions(!showAllSuggestions)}
-                    >
-                      {showAllSuggestions ? "Show important only" : "Show all"}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Apply selected suggestions button */}
-              {selectedSuggestions.size > 0 && (
-                <div className="bg-primary/10 p-3 rounded-md flex items-center justify-between">
-                  <span className="text-sm">
-                    {selectedSuggestions.size} suggestion{selectedSuggestions.size !== 1 ? 's' : ''} selected
-                  </span>
-                  <Button
-                    size="sm"
-                    onClick={applySelectedSuggestions}
-                    className="gap-1"
-                  >
-                    <Check size={14} />
-                    Apply Selected ({selectedSuggestions.size})
-                  </Button>
-                </div>
-              )}
-
-              {/* Suggestion list */}
-              <div className="space-y-6 divide-y">
-                {filteredSuggestions.map((suggestion, index) => {
-                  const suggestionIndex = contentRewrites.suggestions.indexOf(suggestion);
-                  const isSelected = selectedSuggestions.has(suggestionIndex);
-
-                  return (
-                    <div
-                      key={index}
-                      className={`bg-muted/50 rounded-lg p-4 space-y-3 pt-6 ${isSelected ? 'ring-1 ring-primary' : ''}`}
-                    >
-                      <div className="absolute -mt-6 ml-2 flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSuggestionSelection(suggestionIndex)}
-                          className="rounded border-primary text-primary"
-                        />
-                        <div className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-md">
-                          Suggestion {suggestionIndex + 1} of {contentRewrites.suggestions.length}
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium text-muted-foreground">Original:</h4>
-                        <div className="bg-background p-3 rounded border text-sm suggestion-preview"
-                          dangerouslySetInnerHTML={{ __html: suggestion.original }} />
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <h4 className="text-sm font-medium text-primary">Improved:</h4>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 gap-1 text-xs"
-                                onClick={() => handleApplySuggestion(suggestion.original, suggestion.improved)}
-                              >
-                                <Check size={14} />
-                                Apply
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">
-                              <p>Apply this suggestion to your content</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <div className="bg-primary/10 border-primary/20 border p-3 rounded text-sm suggestion-preview"
-                          dangerouslySetInnerHTML={{ __html: suggestion.improved }} />
-                      </div>
-
-                      {suggestion.explanation && (
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium text-muted-foreground">Why this helps:</h4>
-                          <p className="text-xs text-muted-foreground p-2">{suggestion.explanation}</p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : contentRewrites.rawSuggestions ? (
-            <div className="p-4 space-y-4">
-              <p className="text-sm text-muted-foreground">We couldn't parse the suggestions into a structured format, but here's the raw suggestion:</p>
-              <div className="bg-muted/50 p-4 rounded text-sm whitespace-pre-wrap">{contentRewrites.rawSuggestions}</div>
-            </div>
-          ) : (
-            <div className="p-8 text-center">
-              <p className="text-muted-foreground">No suggestions available. Try with different content or keywords.</p>
-            </div>
+          {(currentDraft.contentType === 'blog' || currentDraft.contentType === 'article') && (
+            <Button variant="outline" size="sm" onClick={() => openPreview()}>
+              <Eye className="h-4 w-4 mr-1" /> Preview
+            </Button>
           )}
 
-          <DialogFooter>
+          {currentDraft.contentType === 'social' && (
             <Button
               variant="outline"
-              onClick={() => setShowRewriteDialog(false)}
-              className="gap-1"
+              size="sm"
+              onClick={() => openSocialPreview()}
+              disabled={isOverCharacterLimit}
             >
-              <X size={16} />
-              Close
+              <Share className="h-4 w-4 mr-1" /> Preview Post
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          )}
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => optimizeForKeyword()}
+                disabled={!targetKeyword}
+              >
+                <Sparkles className="h-4 w-4 mr-1" />
+                AI Optimize
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>AI optimize content for keyword</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </CardFooter>
     </Card>
   );
+}
+
+// Helper functions to render content type information
+function getContentTypeName(contentType: string): string {
+  switch (contentType) {
+    case 'social':
+      return 'Social Post';
+    case 'blog':
+      return 'Blog Post';
+    case 'video':
+      return 'Video Script';
+    case 'article':
+      return 'Article';
+    default:
+      return 'Content';
+  }
+}
+
+function getContentTypeIcon(contentType: string) {
+  switch (contentType) {
+    case 'social':
+      return <MessageSquare className="h-4 w-4" />;
+    case 'blog':
+      return <Type className="h-4 w-4" />;
+    case 'video':
+      return <Video className="h-4 w-4" />;
+    default:
+      return <FileText className="h-4 w-4" />;
+  }
 }
 
 export default ContentEditor; 

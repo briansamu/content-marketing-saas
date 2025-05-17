@@ -88,6 +88,10 @@ const data = {
         //   url: "#",
         // },
         {
+          title: "Documents",
+          url: "/app/content/documents",
+        },
+        {
           title: "Editor",
           url: "/app/content/editor",
         },

@@ -40,6 +40,7 @@ export interface ContentDraft {
   lastSaved: string;
   status: 'draft' | 'published' | 'archived';
   storageLocation: 'local' | 'cloud' | 'both';
+  contentType: 'social' | 'blog' | 'video' | 'article' | string;
 }
 
 interface EditorState {
@@ -86,6 +87,8 @@ interface EditorState {
   clearContentRewrites: () => void;
   applyRewriteSuggestion: (original: string, improved: string) => void;
   applyMultipleRewriteSuggestions: (suggestionsToApply: Array<{ original: string, improved: string }>) => void;
+  setContentType: (contentType: string) => void;
+  clearCurrentDraftFromStorage: () => void;
 }
 
 // Helper function to get drafts from localStorage
@@ -106,18 +109,48 @@ const saveLocalDrafts = (drafts: ContentDraft[]) => {
   localStorage.setItem('content_drafts', JSON.stringify(drafts));
 };
 
+// Helper function to get current draft from localStorage
+const getCurrentDraftFromStorage = (): ContentDraft | null => {
+  const currentDraftJson = localStorage.getItem('current_draft');
+  if (currentDraftJson) {
+    try {
+      return JSON.parse(currentDraftJson);
+    } catch (e) {
+      console.error('Failed to parse current draft from localStorage', e);
+    }
+  }
+  return null;
+};
+
+// Helper function to save current draft to localStorage
+const saveCurrentDraftToStorage = (draft: ContentDraft) => {
+  localStorage.setItem('current_draft', JSON.stringify(draft));
+};
+
 // API base URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
-export const useEditorStore = create<EditorState>((set, get) => ({
-  currentDraft: {
+// Get the default current draft - either from localStorage or a new empty one
+const getDefaultCurrentDraft = (): ContentDraft => {
+  const storedDraft = getCurrentDraftFromStorage();
+
+  if (storedDraft) {
+    return storedDraft;
+  }
+
+  return {
     title: '',
     content: '',
     wordCount: 0,
     lastSaved: new Date().toISOString(),
-    status: 'draft',
-    storageLocation: 'local'
-  },
+    status: 'draft' as const,
+    storageLocation: 'local' as const,
+    contentType: 'social'
+  };
+};
+
+export const useEditorStore = create<EditorState>((set, get) => ({
+  currentDraft: getDefaultCurrentDraft(),
   savedDrafts: [],
   isLoading: false,
   isSaving: false,
@@ -144,28 +177,100 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const text = content.replace(/<[^>]*>/g, ' ');
       const words = text.split(/\s+/).filter(word => word.length > 0);
 
+      const updatedDraft = {
+        ...state.currentDraft,
+        content,
+        wordCount: words.length
+      };
+
+      // Save to localStorage for persistence across refreshes
+      saveCurrentDraftToStorage(updatedDraft);
+
       return {
-        currentDraft: {
-          ...state.currentDraft,
-          content,
-          wordCount: words.length
-        },
+        currentDraft: updatedDraft,
         isDirty: true
       };
     });
   },
 
   updateTitle: (title) => {
-    set(state => ({
-      currentDraft: {
+    set(state => {
+      const updatedDraft = {
         ...state.currentDraft,
         title
-      },
-      isDirty: true
-    }));
+      };
+
+      // Save to localStorage for persistence across refreshes
+      saveCurrentDraftToStorage(updatedDraft);
+
+      return {
+        currentDraft: updatedDraft,
+        isDirty: true
+      };
+    });
+  },
+
+  setContentType: (contentType) => {
+    set(state => {
+      const updatedDraft = {
+        ...state.currentDraft,
+        contentType
+      };
+
+      // Save to localStorage for persistence across refreshes
+      saveCurrentDraftToStorage(updatedDraft);
+
+      return {
+        currentDraft: updatedDraft,
+        isDirty: true
+      };
+    });
   },
 
   newDraft: () => {
+    const newEmptyDraft: ContentDraft = {
+      title: '',
+      content: '',
+      wordCount: 0,
+      lastSaved: new Date().toISOString(),
+      status: 'draft',
+      storageLocation: 'local',
+      contentType: 'social'
+    };
+
+    // Save to localStorage
+    saveCurrentDraftToStorage(newEmptyDraft);
+
+    set({
+      currentDraft: newEmptyDraft,
+      isDirty: false
+    });
+  },
+
+  setDraftStatus: (status) => {
+    set(state => {
+      const updatedDraft = {
+        ...state.currentDraft,
+        status
+      };
+
+      // Save to localStorage for persistence
+      saveCurrentDraftToStorage(updatedDraft);
+
+      return {
+        currentDraft: updatedDraft,
+        isDirty: true
+      };
+    });
+  },
+
+  clearEditorError: () => {
+    set({ error: null });
+  },
+
+  // Function to explicitly clear the current draft from localStorage
+  clearCurrentDraftFromStorage: () => {
+    localStorage.removeItem('current_draft');
     set({
       currentDraft: {
         title: '',
@@ -173,24 +278,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         wordCount: 0,
         lastSaved: new Date().toISOString(),
         status: 'draft',
-        storageLocation: 'local'
+        storageLocation: 'local',
+        contentType: 'social'
       },
       isDirty: false
     });
-  },
-
-  setDraftStatus: (status) => {
-    set(state => ({
-      currentDraft: {
-        ...state.currentDraft,
-        status
-      },
-      isDirty: true
-    }));
-  },
-
-  clearEditorError: () => {
-    set({ error: null });
   },
 
   startAutoSave: () => {
@@ -235,6 +327,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         id: currentDraft.id || `draft-${Date.now()}`,
         lastSaved: new Date().toISOString()
       };
+
+      // Save the current draft to localStorage for persistence across refreshes
+      saveCurrentDraftToStorage(draftToSave);
 
       // Try to save to the backend first
       let savedToCloud = false;
@@ -496,6 +591,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         }
       }
 
+      // Always save the draft to localStorage when loaded, even if no changes are made
+      // This ensures that when the user refreshes, we can recover the last opened draft
+      saveCurrentDraftToStorage(draftData);
+
       set({
         currentDraft: draftData,
         isLoading: false,
@@ -572,7 +671,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             wordCount: 0,
             lastSaved: new Date().toISOString(),
             status: 'draft',
-            storageLocation: 'local'
+            storageLocation: 'local',
+            contentType: 'social'
           },
           isDirty: false
         })
