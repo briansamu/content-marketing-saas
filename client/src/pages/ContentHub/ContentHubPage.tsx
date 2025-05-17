@@ -82,7 +82,9 @@ export function ContentHubPage() {
   const storedDraft = getCurrentDraftFromStorage();
   const hasContent = currentDraft.content !== '' || currentDraft.title !== '';
   const hasStoredContent = storedDraft && (storedDraft.content !== '' || storedDraft.title !== '');
-  const [editorVisible, setEditorVisible] = useState(hasContent || hasStoredContent);
+  // Also check if a content type was set, which indicates user wants to create a new document
+  const hasContentType = currentDraft.contentType !== '';
+  const [editorVisible, setEditorVisible] = useState(hasContent || hasStoredContent || hasContentType);
 
   // Log content suggestions when they change
   useEffect(() => {
@@ -98,11 +100,11 @@ export function ContentHubPage() {
   useEffect(() => {
     clearTextSummary();
 
-    // Show editor if there's content or a title
-    if (currentDraft.content !== '' || currentDraft.title !== '') {
+    // Show editor if there's content, a title, or a content type is set
+    if (currentDraft.content !== '' || currentDraft.title !== '' || currentDraft.contentType !== '') {
       setEditorVisible(true);
     }
-  }, [currentDraft.id, clearTextSummary, currentDraft.content, currentDraft.title]);
+  }, [currentDraft.id, clearTextSummary, currentDraft.content, currentDraft.title, currentDraft.contentType]);
 
   const handleNewDraft = (contentType: string) => {
     clearCurrentDraftFromStorage();

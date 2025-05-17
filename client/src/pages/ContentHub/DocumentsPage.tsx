@@ -18,17 +18,28 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
 import { ContentDraft } from '../../store/useEditorStore';
 
 export function DocumentsPage() {
   const {
     savedDrafts,
     loadDraft,
-    deleteDraft
+    deleteDraft,
+    newDraft,
+    clearCurrentDraftFromStorage,
+    setContentType
   } = useEditorStore();
   const navigate = useNavigate();
   const [sortedDrafts, setSortedDrafts] = useState<ContentDraft[]>([...savedDrafts]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [newDraftDialogOpen, setNewDraftDialogOpen] = useState(false);
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,7 +55,20 @@ export function DocumentsPage() {
     navigate('/app/content/editor');
   };
 
-  const handleCreateNew = () => {
+  const handleOpenNewDraftDialog = () => {
+    setNewDraftDialogOpen(true);
+  };
+
+  const handleCreateNewDraft = (contentType: string) => {
+    // Clear any current draft first to ensure we start fresh
+    clearCurrentDraftFromStorage();
+    // Create a new empty draft
+    newDraft();
+    // Set the content type
+    setContentType(contentType);
+    // Close the dialog
+    setNewDraftDialogOpen(false);
+    // Navigate to the editor
     navigate('/app/content/editor');
   };
 
@@ -100,7 +124,7 @@ export function DocumentsPage() {
             size="sm"
             variant="default"
             className="gap-1"
-            onClick={handleCreateNew}
+            onClick={handleOpenNewDraftDialog}
           >
             <Plus size={16} />
             New Document
@@ -117,7 +141,7 @@ export function DocumentsPage() {
             {sortedDrafts.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">You don't have any content documents yet</p>
-                <Button onClick={handleCreateNew}>
+                <Button onClick={handleOpenNewDraftDialog}>
                   <Plus className="mr-2 h-4 w-4" /> Create Your First Document
                 </Button>
               </div>
@@ -162,6 +186,56 @@ export function DocumentsPage() {
           </CardContent>
         </Card>
       </main>
+
+      {/* New Content Type Dialog */}
+      <Dialog open={newDraftDialogOpen} onOpenChange={setNewDraftDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Content</DialogTitle>
+            <DialogDescription>
+              Select the type of content you want to create
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col gap-2 justify-center items-center"
+              onClick={() => handleCreateNewDraft('social')}
+            >
+              <MessageSquare className="h-8 w-8 text-primary" />
+              <span>Social Post</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col gap-2 justify-center items-center"
+              onClick={() => handleCreateNewDraft('blog')}
+            >
+              <Type className="h-8 w-8 text-primary" />
+              <span>Blog Post</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col gap-2 justify-center items-center"
+              onClick={() => handleCreateNewDraft('video')}
+            >
+              <Video className="h-8 w-8 text-primary" />
+              <span>Video Script</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col gap-2 justify-center items-center"
+              onClick={() => handleCreateNewDraft('article')}
+            >
+              <FileText className="h-8 w-8 text-primary" />
+              <span>Article</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
