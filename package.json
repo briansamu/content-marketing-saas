@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "ioredis": "^5.6.1",
-    "rate-limit-redis": "^4.2.0"
-  }
-}
