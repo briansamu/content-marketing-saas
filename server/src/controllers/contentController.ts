@@ -355,6 +355,14 @@ const spellcheck = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // DISABLED: Spellchecking is currently disabled
+    logger.info('Spellcheck API is currently disabled');
+    return res.status(200).json({
+      success: true,
+      errors: []
+    });
+
+    /* Original implementation below for future reference
     const { text } = req.body;
 
     if (!text || typeof text !== 'string') {
@@ -548,6 +556,7 @@ const spellcheck = async (req: AuthRequest, res: Response) => {
       success: true,
       errors: filteredErrors
     });
+    */
   } catch (error) {
     logger.error('Spellcheck error:', error);
     res.status(500).json({
@@ -568,6 +577,13 @@ const acceptSpellcheckEdit = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // DISABLED: Spellchecking is currently disabled
+    logger.info('Spellcheck API is currently disabled');
+    return res.status(200).json({
+      success: true
+    });
+
+    /* Original implementation below for future reference
     const { editId } = req.params;
     const sessionId = `user-${req.user.id}`;
 
@@ -577,6 +593,7 @@ const acceptSpellcheckEdit = async (req: AuthRequest, res: Response) => {
     return res.status(success ? 200 : 400).json({
       success
     });
+    */
   } catch (error) {
     logger.error('Error accepting spellcheck edit:', error);
     res.status(500).json({
@@ -597,6 +614,13 @@ const rejectSpellcheckEdit = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // DISABLED: Spellchecking is currently disabled
+    logger.info('Spellcheck API is currently disabled');
+    return res.status(200).json({
+      success: true
+    });
+
+    /* Original implementation below for future reference
     const { editId } = req.params;
     const sessionId = `user-${req.user.id}`;
 
@@ -606,6 +630,7 @@ const rejectSpellcheckEdit = async (req: AuthRequest, res: Response) => {
     return res.status(success ? 200 : 400).json({
       success
     });
+    */
   } catch (error) {
     logger.error('Error rejecting spellcheck edit:', error);
     res.status(500).json({

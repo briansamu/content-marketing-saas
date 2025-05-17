@@ -305,6 +305,11 @@ export function useSpellcheck(editor: Editor | null) {
 
   // Perform the actual spellcheck API call
   const performSpellcheck = useCallback(async (content: string) => {
+    // DISABLED: Spellchecking is currently disabled
+    setErrors([]);
+    return;
+
+    /* Original implementation below for future reference
     // Extract plain text for better caching and comparison
     const plainText = extractPlainText(content);
 
@@ -410,7 +415,8 @@ export function useSpellcheck(editor: Editor | null) {
     } finally {
       setIsChecking(false);
     }
-  }, [API_BASE_URL, extractPlainText, hashText, lastCheckedHash, ignoredErrors, ignoredErrorsRef, getCache, cleanCache, saveCache, filterIgnoredErrors]);
+    */
+  }, []);
 
   // Accept a suggestion from Sapling
   const acceptSuggestion = useCallback(async (errorOffset: number) => {

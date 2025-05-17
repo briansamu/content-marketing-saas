@@ -363,7 +363,9 @@ export function ContentEditor({ targetKeyword }: { targetKeyword?: string }) {
 
   // Manual spellcheck trigger
   const handleManualSpellcheck = () => {
-    checkSpelling(true);
+    // DISABLED: Spellchecking is currently disabled
+    // checkSpelling(true);
+    console.log('Spellchecking is currently disabled');
   };
 
   // Function to generate text summary
@@ -493,7 +495,7 @@ export function ContentEditor({ targetKeyword }: { targetKeyword?: string }) {
             onSave={isMobile ? undefined : handleSave}
             isSaving={isSaving}
             isDirty={isDirty}
-            onSpellcheck={handleManualSpellcheck}
+            onSpellcheck={undefined}
             isChecking={isChecking}
             ignoredErrors={ignoredErrors}
             onRemoveIgnoredError={removeFromIgnored}
@@ -549,14 +551,6 @@ export function ContentEditor({ targetKeyword }: { targetKeyword?: string }) {
           style={{ height: editorHeight }}
         >
           <EditorContent editor={editor} className="prose dark:prose-invert max-w-none" />
-          <SpellcheckIndicator isChecking={isChecking} />
-          {editor && (
-            <SpellcheckMenu
-              editor={editor}
-              onApplySuggestion={applySuggestion}
-              onIgnoreError={addToIgnored}
-            />
-          )}
         </div>
       </CardContent>
       <CardFooter ref={footerRef} className="flex justify-between p-4 pt-0">

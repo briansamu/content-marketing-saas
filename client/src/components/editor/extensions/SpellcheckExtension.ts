@@ -77,6 +77,10 @@ export const SpellcheckExtension = Extension.create<SpellcheckOptions>({
             return DecorationSet.empty;
           },
           apply(tr, oldDecorations) {
+            // DISABLED: Spellchecking is currently disabled
+            return DecorationSet.empty;
+
+            /* Original implementation below for future reference
             // Skip if it's not a spellcheck update
             if (!tr.getMeta('spellcheck-update')) {
               return oldDecorations.map(tr.mapping, tr.doc);
@@ -262,6 +266,7 @@ export const SpellcheckExtension = Extension.create<SpellcheckOptions>({
             }
 
             return DecorationSet.create(doc, decorations);
+            */
           },
         },
         props: {
