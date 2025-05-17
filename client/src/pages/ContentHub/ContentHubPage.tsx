@@ -3,7 +3,7 @@ import { useEditorStore } from '../../store/useEditorStore';
 import ContentEditor from '../../components/editor/ContentEditor';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Plus, FileText, Loader2, Save, ArrowRightCircleIcon, Trash, Cloud, Database, BarChart, BarChart2, AlertTriangle, Check, Lightbulb, Hash, TrendingUp, Bug } from 'lucide-react';
+import { Plus, FileText, Loader2, Save, ArrowRightCircleIcon, Trash, Cloud, Database, BarChart, BarChart2, AlertTriangle, Check, Lightbulb, Hash, TrendingUp } from 'lucide-react';
 import { formatDateString, truncateString } from '../../lib/utils';
 import { Breadcrumb, BreadcrumbLink } from "../../components/ui/breadcrumb";
 import { BreadcrumbSeparator } from "../../components/ui/breadcrumb";
@@ -51,7 +51,6 @@ export function ContentHubPage() {
     analyzeKeyword
   } = useEditorStore();
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
-  const [showDebug, setShowDebug] = useState(false);
   const [keywordTarget, setKeywordTarget] = useState('');
   const [filesDialogOpen, setFilesDialogOpen] = useState(false);
 
@@ -340,15 +339,6 @@ export function ContentHubPage() {
             <Save size={16} />
             {isSaving ? "Saving..." : "Save"}
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setShowDebug(!showDebug)}
-            className="gap-1"
-            title="Toggle debug information"
-          >
-            <Bug size={16} />
-          </Button>
         </div>
       </header>
       <div className="flex flex-1 flex-col lg:flex-row gap-6 p-4 md:p-6">
@@ -535,27 +525,6 @@ export function ContentHubPage() {
                       ))}
                     </div>
                   </div>
-
-                  {/* Debug Section */}
-                  {showDebug && (
-                    <>
-                      <Separator />
-                      <div className="flex flex-col gap-1">
-                        <h3 className="text-sm font-medium flex items-center gap-1.5">
-                          <Bug size={16} className="text-blue-500" />
-                          Debug Info
-                        </h3>
-                        <div className="text-xs bg-muted p-2 rounded-md max-h-40 overflow-y-auto">
-                          <p>Related Keywords Count: {contentSuggestions.relatedKeywords.length}</p>
-                          <p>Analyzed Keywords Count: {contentSuggestions.analyzedKeywords.length}</p>
-                          <p>Is Loading: {contentSuggestions.isLoading ? 'Yes' : 'No'}</p>
-                          <pre className="text-[10px] overflow-x-auto whitespace-pre-wrap">
-                            {JSON.stringify(contentSuggestions, null, 2)}
-                          </pre>
-                        </div>
-                      </div>
-                    </>
-                  )}
                 </div>
               ) : (
                 <p className="text-muted-foreground text-sm">
