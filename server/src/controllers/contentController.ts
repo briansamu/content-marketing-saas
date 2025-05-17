@@ -4,6 +4,7 @@ import logger from "../utils/logger.js";
 import { Response } from "express";
 import { Model } from "sequelize";
 import SaplingApiService from "../services/saplingApiService.js";
+import SeoApiService from "../services/seoApiService.js";
 
 // Interface for Content model instance
 interface ContentInstance extends Model {
@@ -770,6 +771,237 @@ const clearIgnoredErrors = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// Generate a text summary using DataForSEO API
+const generateTextSummary = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const { text, languageCode } = req.body;
+
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Text is required'
+      });
+    }
+
+    const result = await SeoApiService.generateTextSummary(text, languageCode || 'en-US');
+
+    return res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    logger.error('Error generating text summary:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating text summary',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+// Generate content suggestions using DataForSEO API
+const generateContentSuggestions = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const { text, debug } = req.body;
+    const includeDebugInfo = debug === true || process.env.NODE_ENV === 'development';
+
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Text is required'
+      });
+    }
+
+    logger.info('Generating content suggestions for user:', req.user.id);
+    const result = await SeoApiService.getContentSuggestions(text);
+    logger.info('Content suggestions generated successfully');
+
+    // Prepare a response with or without debug info
+    const responseData = includeDebugInfo ?
+      result : // Include full result with all API data for debugging
+      {
+        // Extract only the essential data for production
+        summary: result.summary,
+        relatedKeywords: result.relatedKeywords,
+        analyzedKeywords: result.analyzedKeywords
+      };
+
+    // Add debug metadata if requested
+    if (includeDebugInfo) {
+      // Create a structured debug summary of the response
+      const debugInfo = {
+        summary: {
+          status: result.summary.status_code,
+          hasResults: Boolean(result.summary.tasks?.[0]?.result),
+          resultCount: result.summary.tasks?.[0]?.result?.length || 0
+        },
+        relatedKeywords: {
+          status: result.relatedKeywords.status_code,
+          hasResults: Boolean(result.relatedKeywords.tasks?.[0]?.result),
+          resultCount: result.relatedKeywords.tasks?.[0]?.result?.length || 0,
+          firstResultKeys: result.relatedKeywords.tasks?.[0]?.result?.[0] ?
+            Object.keys(result.relatedKeywords.tasks[0].result[0]) : []
+        },
+        analyzedKeywords: result.analyzedKeywords
+      };
+
+      return res.status(200).json({
+        success: true,
+        data: responseData,
+        debug: debugInfo
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: responseData
+    });
+  } catch (error) {
+    logger.error('Error generating content suggestions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating content suggestions',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
+// Analyze content for a specific keyword using DataForSEO API
+const analyzeKeyword = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const { text, keyword, debug } = req.body;
+    const includeDebugInfo = debug === true || process.env.NODE_ENV === 'development';
+
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Text is required'
+      });
+    }
+
+    if (!keyword || keyword.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Keyword is required'
+      });
+    }
+
+    logger.info(`Analyzing keyword "${keyword}" for user: ${req.user.id}`);
+
+    // First get text summary
+    const summaryResponse = await SeoApiService.generateTextSummary(text);
+
+    // Then get related keywords for the specific keyword
+    const relatedKeywordsResponse = await SeoApiService.getRelatedKeywords(keyword);
+
+    // Get top keywords from the text summary for context
+    let analyzedKeywords: string[] = [];
+    if (summaryResponse.tasks?.[0]?.result?.[0]?.keyword_density) {
+      const keywordDensity = summaryResponse.tasks[0].result[0].keyword_density as Record<string, number>;
+      analyzedKeywords = Object.entries(keywordDensity)
+        .filter(([k]) => k.length > 2) // Filter out short keywords
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([k]) => k);
+    }
+
+    // Extract keywords directly
+    let extractedKeywords = [];
+    if (relatedKeywordsResponse.tasks?.[0]?.result) {
+      const results = relatedKeywordsResponse.tasks[0].result;
+
+      if (results.length > 0) {
+        // Direct keyword structure
+        if (results[0].keyword && typeof results[0].keyword === 'string') {
+          logger.info('Found direct keyword structure');
+          extractedKeywords = results;
+        }
+        // Nested keyword structure
+        else if (results[0].keyword_data && results[0].keyword_data.related_keywords) {
+          logger.info('Found nested keyword structure');
+          extractedKeywords = results[0].keyword_data.related_keywords;
+        }
+      }
+    }
+
+    const result = {
+      summary: summaryResponse,
+      relatedKeywords: relatedKeywordsResponse,
+      analyzedKeywords: analyzedKeywords,
+      extractedKeywords: extractedKeywords
+    };
+
+    // Prepare response with or without debug info
+    const responseData = includeDebugInfo ?
+      result : // Include full result for debugging
+      {
+        summary: result.summary,
+        relatedKeywords: result.relatedKeywords,
+        analyzedKeywords: result.analyzedKeywords,
+        extractedKeywords: result.extractedKeywords
+      };
+
+    // Add debug metadata if requested
+    if (includeDebugInfo) {
+      const debugInfo = {
+        summary: {
+          status: result.summary.status_code,
+          hasResults: Boolean(result.summary.tasks?.[0]?.result),
+          resultCount: result.summary.tasks?.[0]?.result?.length || 0
+        },
+        relatedKeywords: {
+          status: result.relatedKeywords.status_code,
+          hasResults: Boolean(result.relatedKeywords.tasks?.[0]?.result),
+          resultCount: result.relatedKeywords.tasks?.[0]?.result?.length || 0,
+          firstResultKeys: result.relatedKeywords.tasks?.[0]?.result?.[0] ?
+            Object.keys(result.relatedKeywords.tasks[0].result[0]) : []
+        },
+        targetKeyword: keyword,
+        analyzedKeywords: result.analyzedKeywords
+      };
+
+      return res.status(200).json({
+        success: true,
+        data: responseData,
+        debug: debugInfo
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: responseData
+    });
+  } catch (error) {
+    logger.error('Error analyzing keyword:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error analyzing keyword',
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+};
+
 export default {
   createContent,
   getDrafts,
@@ -782,5 +1014,8 @@ export default {
   getIgnoredErrors,
   addIgnoredError,
   removeIgnoredError,
-  clearIgnoredErrors
+  clearIgnoredErrors,
+  generateTextSummary,
+  generateContentSuggestions,
+  analyzeKeyword
 } as Record<string, (req: AuthRequest, res: Response) => Promise<any>>;

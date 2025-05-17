@@ -27,4 +27,9 @@ router.post('/spellcheck/ignored', contentController.addIgnoredError as express.
 router.delete('/spellcheck/ignored/:id', contentController.removeIgnoredError as express.RequestHandler);
 router.delete('/spellcheck/ignored', contentController.clearIgnoredErrors as express.RequestHandler);
 
+// Seo endpoints
+router.post('/seo/text-summary', contentController.generateTextSummary as express.RequestHandler);
+router.post('/seo/content-suggestions', contentController.generateContentSuggestions as express.RequestHandler);
+router.post('/seo/keyword-analysis', contentController.analyzeKeyword as express.RequestHandler);
+
 export default router;

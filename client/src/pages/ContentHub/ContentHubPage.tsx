@@ -3,7 +3,7 @@ import { useEditorStore } from '../../store/useEditorStore';
 import ContentEditor from '../../components/editor/ContentEditor';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Plus, FileText, Loader2, Save, ArrowRightCircleIcon, Trash, Cloud, Database } from 'lucide-react';
+import { Plus, FileText, Loader2, Save, ArrowRightCircleIcon, Trash, Cloud, Database, BarChart, BarChart2, AlertTriangle, Check, Lightbulb, Hash, TrendingUp, Bug } from 'lucide-react';
 import { formatDateString, truncateString } from '../../lib/utils';
 import { Breadcrumb, BreadcrumbLink } from "../../components/ui/breadcrumb";
 import { BreadcrumbSeparator } from "../../components/ui/breadcrumb";
@@ -31,18 +31,35 @@ export function ContentHubPage() {
     currentDraft,
     isSaving,
     isDirty,
+    textSummary,
+    analyzedText,
+    contentSuggestions,
     loadDrafts,
     newDraft,
     loadDraft,
     saveDraft,
-    deleteDraft
+    deleteDraft,
+    clearTextSummary,
+    analyzeKeyword
   } = useEditorStore();
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
+  const [keywordTarget, setKeywordTarget] = useState('');
+
+  // Log content suggestions when they change
+  useEffect(() => {
+    console.log('ContentHubPage - Content Suggestions:', contentSuggestions);
+  }, [contentSuggestions]);
 
   // Load saved drafts on initial render
   useEffect(() => {
     loadDrafts();
   }, [loadDrafts]);
+
+  // When changing drafts, clear the text summary
+  useEffect(() => {
+    clearTextSummary();
+  }, [currentDraft.id, clearTextSummary]);
 
   const handleNewDraft = () => {
     newDraft();
@@ -65,6 +82,24 @@ export function ContentHubPage() {
       deleteDraft(draftToDelete);
       setDraftToDelete(null);
     }
+  };
+
+  // Helper to render readability level
+  const getReadabilityLevel = (score: number) => {
+    if (score < 6) return { level: 'Elementary', color: 'text-green-500' };
+    if (score < 10) return { level: 'Middle School', color: 'text-blue-500' };
+    if (score < 14) return { level: 'High School', color: 'text-yellow-500' };
+    if (score < 18) return { level: 'College', color: 'text-orange-500' };
+    return { level: 'Professional', color: 'text-red-500' };
+  };
+
+  // Get the top 5 keywords
+  const getTopKeywords = () => {
+    if (!textSummary?.keyword_density) return [];
+
+    return Object.entries(textSummary.keyword_density)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
   };
 
   const getStorageIcon = (storageLocation: 'local' | 'cloud' | 'both') => {
@@ -106,6 +141,29 @@ export function ContentHubPage() {
           </Tooltip>
         );
     }
+  };
+
+  const handleKeywordAnalysis = (keyword: string) => {
+    if (!keyword.trim() || !textSummary) return;
+
+    // If we have analyzed text from a previous analysis, use that,
+    // otherwise use the current draft content
+    const contentToAnalyze = analyzedText ||
+      (currentDraft?.content && stripHtmlTags(currentDraft.content)) || '';
+
+    if (!contentToAnalyze.trim()) {
+      console.warn('No content to analyze');
+      return;
+    }
+
+    // Call the analyzer with the specific keyword
+    console.log(`Analyzing content for keyword: "${keyword}"`);
+    analyzeKeyword(contentToAnalyze, keyword);
+  };
+
+  // Helper function to remove HTML tags from editor content
+  const stripHtmlTags = (html: string) => {
+    return html.replace(/<[^>]*>/g, ' ').trim();
   };
 
   return (
@@ -154,12 +212,21 @@ export function ContentHubPage() {
             <Save size={16} />
             {isSaving ? "Saving..." : "Save"}
           </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowDebug(!showDebug)}
+            className="gap-1"
+            title="Toggle debug information"
+          >
+            <Bug size={16} />
+          </Button>
         </div>
       </header>
       <div className="flex flex-1 flex-col lg:flex-row gap-6 p-4 md:p-6">
         {/* Main editor area */}
         <div className="w-full lg:w-3/5">
-          <ContentEditor />
+          <ContentEditor targetKeyword={keywordTarget} />
         </div>
 
         {/* Sidebar with drafts list - simplified to 3 cards */}
@@ -266,12 +333,207 @@ export function ContentHubPage() {
 
           <Card className="row-span-1 flex flex-col overflow-hidden">
             <CardHeader className="flex-shrink-0">
-              <CardTitle className="text-xl">Insights & Suggestions</CardTitle>
+              <CardTitle className="text-xl flex items-center gap-2">
+                Insights & Suggestions
+                {contentSuggestions.isLoading && (
+                  <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent className="overflow-y-auto flex-grow">
-              <p className="text-muted-foreground text-sm">
-                Content analytics and AI-powered suggestions will be available soon.
-              </p>
+              {/* Target Keyword Input - Always visible */}
+              <div className="flex flex-col gap-1 mb-4">
+                <h3 className="text-sm font-medium flex items-center gap-1.5">
+                  <Lightbulb size={16} className="text-primary" />
+                  Target Keyword
+                </h3>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Enter target keyword..."
+                    className="px-2 py-1 text-sm border border-input rounded-md flex-1"
+                    value={keywordTarget}
+                    onChange={(e) => setKeywordTarget(e.target.value)}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs whitespace-nowrap"
+                    disabled={!keywordTarget.trim() || contentSuggestions.isLoading}
+                    onClick={() => handleKeywordAnalysis(keywordTarget.trim())}
+                  >
+                    Analyze Keyword
+                  </Button>
+                </div>
+              </div>
+
+              {textSummary ? (
+                <div className="space-y-4">
+                  <Separator />
+
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-sm font-medium flex items-center gap-1.5">
+                      <BarChart2 size={16} className="text-primary" />
+                      Content Stats
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Words:</span>
+                        <span className="font-medium">{textSummary.words}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Sentences:</span>
+                        <span className="font-medium">{textSummary.sentences}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Paragraphs:</span>
+                        <span className="font-medium">{textSummary.paragraphs}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Characters:</span>
+                        <span className="font-medium">{textSummary.characters_with_spaces}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-sm font-medium flex items-center gap-1.5">
+                      <Check size={16} className="text-green-500" />
+                      Text Quality
+                    </h3>
+                    <div className="grid grid-cols-1 gap-1 text-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Reading Level:</span>
+                        <span className={`font-medium ${getReadabilityLevel(textSummary.coleman_liau_index).color}`}>
+                          {getReadabilityLevel(textSummary.coleman_liau_index).level}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Words per Sentence:</span>
+                        <span className="font-medium">{textSummary.words_per_sentence.toFixed(1)}</span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Errors:</span>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <AlertTriangle size={14} className="text-red-500" />
+                            <span className="font-medium">{textSummary.spelling_errors + textSummary.grammar_errors}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Analyzed Keywords Section - Always show section even if empty */}
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-sm font-medium flex items-center gap-1.5">
+                      <Hash size={16} className="text-primary" />
+                      Main Topics {contentSuggestions.analyzedKeywords.length === 0 && "(None found)"}
+                    </h3>
+                    {contentSuggestions.analyzedKeywords.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {contentSuggestions.analyzedKeywords.map((keyword) => (
+                          <div key={keyword} className="px-2 py-1 bg-primary/10 text-primary rounded-md text-xs flex items-center gap-1">
+                            <span>{keyword}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No main topics were identified in your content.</p>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  {/* Related Keywords Section - Always show section even if empty */}
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-sm font-medium flex items-center gap-1.5">
+                      <Lightbulb size={16} className="text-yellow-500" />
+                      Keyword Suggestions {contentSuggestions.relatedKeywords.length === 0 && "(None found)"}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Consider adding these related keywords to enhance your content.
+                    </p>
+                    {contentSuggestions.relatedKeywords.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {contentSuggestions.relatedKeywords.map((keyword) => (
+                          <div
+                            key={keyword.keyword}
+                            className="px-2 py-1 bg-muted rounded-md text-xs flex items-center gap-1 group"
+                            title={`Competition: ${keyword.competition}, Search volume: ${keyword.search_volume || 'N/A'}`}
+                          >
+                            <span>{keyword.keyword}</span>
+                            {keyword.search_volume > 0 && (
+                              <span className="text-muted-foreground text-[10px] flex items-center">
+                                <TrendingUp size={10} className={`inline mr-0.5 ${keyword.competition === 'HIGH'
+                                  ? 'text-red-500'
+                                  : keyword.competition === 'MEDIUM'
+                                    ? 'text-yellow-500'
+                                    : 'text-green-500'
+                                  }`} />
+                                {keyword.search_volume > 1000
+                                  ? `${(keyword.search_volume / 1000).toFixed(1)}K`
+                                  : keyword.search_volume}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No keyword suggestions available. Try analyzing more content.</p>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  {/* Top Keywords Section - From the original text summary */}
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-sm font-medium flex items-center gap-1.5">
+                      <BarChart size={16} className="text-primary" />
+                      Top Keywords
+                    </h3>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {getTopKeywords().map(([keyword, count]) => (
+                        <div key={keyword} className="px-2 py-1 bg-muted rounded-md text-xs flex items-center gap-1">
+                          <span>{keyword}</span>
+                          <span className="text-muted-foreground">({count})</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Debug Section */}
+                  {showDebug && (
+                    <>
+                      <Separator />
+                      <div className="flex flex-col gap-1">
+                        <h3 className="text-sm font-medium flex items-center gap-1.5">
+                          <Bug size={16} className="text-blue-500" />
+                          Debug Info
+                        </h3>
+                        <div className="text-xs bg-muted p-2 rounded-md max-h-40 overflow-y-auto">
+                          <p>Related Keywords Count: {contentSuggestions.relatedKeywords.length}</p>
+                          <p>Analyzed Keywords Count: {contentSuggestions.analyzedKeywords.length}</p>
+                          <p>Is Loading: {contentSuggestions.isLoading ? 'Yes' : 'No'}</p>
+                          <pre className="text-[10px] overflow-x-auto whitespace-pre-wrap">
+                            {JSON.stringify(contentSuggestions, null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  Click the "Analyze Text" button above the editor to see content insights.
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -280,9 +542,17 @@ export function ContentHubPage() {
               <CardTitle className="text-xl">Preview</CardTitle>
             </CardHeader>
             <CardContent className="overflow-y-auto flex-grow">
-              <p className="text-muted-foreground text-sm">
-                Live content preview will be available soon.
-              </p>
+              {analyzedText ? (
+                <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
+                  {analyzedText.split('\n\n').map((paragraph, i) => (
+                    <p key={i}>{paragraph}</p>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  After analyzing text, a preview will appear here.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>

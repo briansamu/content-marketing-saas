@@ -1,4 +1,21 @@
 import { create } from 'zustand';
+import { TextSummaryResult, RelatedKeyword, MonthlySearch } from '../types';
+
+// Interface for the keyword item in the API response
+interface KeywordResponseItem {
+  keyword: string;
+  competition?: string;
+  competition_index?: number;
+  search_volume?: number;
+  location_code?: number;
+  language_code?: string | null;
+  search_partners?: boolean;
+  low_top_of_page_bid?: number | null;
+  high_top_of_page_bid?: number | null;
+  cpc?: number | null;
+  monthly_searches?: MonthlySearch[];
+  [key: string]: unknown; // For any other properties
+}
 
 // Types
 export interface ContentDraft {
@@ -19,6 +36,14 @@ interface EditorState {
   error: string | null;
   isDirty: boolean;
   autoSaveInterval: number | null;
+  textSummary: TextSummaryResult | null;
+  analyzedText: string;
+  isAnalyzing: boolean;
+  contentSuggestions: {
+    analyzedKeywords: string[];
+    relatedKeywords: RelatedKeyword[];
+    isLoading: boolean;
+  }
 
   // Actions
   updateContent: (content: string) => void;
@@ -32,6 +57,10 @@ interface EditorState {
   deleteDraft: (draftId: string) => Promise<void>;
   startAutoSave: () => void;
   stopAutoSave: () => void;
+  generateTextSummary: (text: string) => Promise<void>;
+  generateContentSuggestions: (text: string) => Promise<void>;
+  analyzeKeyword: (text: string, keyword: string) => Promise<void>;
+  clearTextSummary: () => void;
 }
 
 // Helper function to get drafts from localStorage
@@ -70,6 +99,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   error: null,
   isDirty: false,
   autoSaveInterval: null,
+  textSummary: null,
+  analyzedText: '',
+  isAnalyzing: false,
+  contentSuggestions: {
+    analyzedKeywords: [],
+    relatedKeywords: [],
+    isLoading: false
+  },
 
   updateContent: (content) => {
     set(state => {
@@ -518,6 +555,375 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         error: error instanceof Error ? error.message : 'Failed to delete draft. Please try again.'
       });
     }
+  },
+
+  generateTextSummary: async (text) => {
+    if (!text || text.trim().length === 0) {
+      console.warn('No text to analyze');
+      return;
+    }
+
+    set({ isAnalyzing: true, error: null });
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/content/seo/text-summary`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ text })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Text Summary Results:', data);
+
+      if (data.success && data.data.tasks && data.data.tasks[0]?.result?.[0]) {
+        set({
+          textSummary: data.data.tasks[0].result[0],
+          analyzedText: data.data.tasks[0].data.text,
+          isAnalyzing: false
+        });
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error) {
+      console.error('Error generating text summary:', error);
+      set({
+        error: error instanceof Error ? error.message : 'Failed to analyze text. Please try again.',
+        isAnalyzing: false
+      });
+    }
+  },
+
+  generateContentSuggestions: async (text) => {
+    if (!text || text.trim().length === 0) {
+      console.warn('No text to analyze');
+      return;
+    }
+
+    set({
+      contentSuggestions: {
+        ...get().contentSuggestions,
+        isLoading: true
+      },
+      error: null
+    });
+
+    try {
+      // Call the content suggestions API with debug flag
+      console.log('Calling content suggestions API with text:', text.substring(0, 100) + '...');
+      const response = await fetch(`${API_BASE_URL}/api/content/seo/content-suggestions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          text,
+          debug: true // Always request debug info for now
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API error (${response.status}):`, errorText);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Content Suggestions API Response:', data);
+
+      // Log debug info if available
+      if (data.debug) {
+        console.log('API Debug Info:', data.debug);
+      }
+
+      if (data.success) {
+        // Extract related keywords from the response
+        let relatedKeywords: RelatedKeyword[] = [];
+        const analyzedKeywords = data.data.analyzedKeywords || [];
+
+        // Log detailed API response structure for debugging
+        console.log('API response analyzedKeywords:', analyzedKeywords);
+        console.log('API relatedKeywords structure:', data.data.relatedKeywords);
+
+        // First check if the server already extracted the keywords for us
+        if (Array.isArray(data.data.extractedKeywords) && data.data.extractedKeywords.length > 0) {
+          console.log('Using server-extracted keywords:', data.data.extractedKeywords.length);
+
+          // Map the extracted keywords to our RelatedKeyword interface
+          relatedKeywords = data.data.extractedKeywords
+            .filter((item: unknown): item is KeywordResponseItem =>
+              item !== null && typeof item === 'object' && 'keyword' in item)
+            .map((item: KeywordResponseItem) => ({
+              keyword: item.keyword,
+              competition: item.competition || 'LOW',
+              competition_index: item.competition_index || 0,
+              search_volume: item.search_volume || 0,
+              location_code: item.location_code || 0,
+              language_code: item.language_code || null,
+              search_partners: item.search_partners || false,
+              low_top_of_page_bid: item.low_top_of_page_bid || null,
+              high_top_of_page_bid: item.high_top_of_page_bid || null,
+              cpc: item.cpc || null,
+              monthly_searches: item.monthly_searches || []
+            }))
+            .slice(0, 10);
+        }
+        // Check if there's an API error response from DataForSEO
+        else if (data.data.relatedKeywords?.tasks_error > 0 &&
+          data.data.relatedKeywords?.tasks?.[0]?.status_code !== 20000) {
+          // Log the error for debugging
+          const errorCode = data.data.relatedKeywords.tasks[0].status_code;
+          const errorMessage = data.data.relatedKeywords.tasks[0].status_message;
+          console.error(`DataForSEO API error (${errorCode}): ${errorMessage}`);
+
+          // You could set an error message in the UI here if needed
+          console.warn(`Failed to get keyword suggestions: ${errorMessage}`);
+        }
+        // Try different paths to find keywords in the response
+        else if (data.data.relatedKeywords?.tasks?.[0]?.result) {
+          const results = data.data.relatedKeywords.tasks[0].result;
+          console.log('Found results in standard path:', results.length);
+
+          // Process the results as before
+          if (results && results.length > 0) {
+            // Case 1: Direct keywords array (each item has a keyword property)
+            if (typeof results[0] === 'object' && 'keyword' in results[0]) {
+              console.log('Found direct keyword structure');
+
+              // Map the keyword items to our RelatedKeyword interface
+              relatedKeywords = results
+                .filter((item: unknown): item is KeywordResponseItem =>
+                  item !== null && typeof item === 'object' && 'keyword' in item)
+                .map((item: KeywordResponseItem) => ({
+                  keyword: item.keyword,
+                  competition: item.competition || 'LOW',
+                  competition_index: item.competition_index || 0,
+                  search_volume: item.search_volume || 0,
+                  location_code: item.location_code || 0,
+                  language_code: item.language_code || null,
+                  search_partners: item.search_partners || false,
+                  low_top_of_page_bid: item.low_top_of_page_bid || null,
+                  high_top_of_page_bid: item.high_top_of_page_bid || null,
+                  cpc: item.cpc || null,
+                  monthly_searches: item.monthly_searches || []
+                }))
+                .slice(0, 10);
+            }
+            // Case 2: Nested keyword_data structure with related_keywords array
+            else if (typeof results[0] === 'object' &&
+              'keyword_data' in results[0] &&
+              results[0].keyword_data &&
+              'related_keywords' in results[0].keyword_data &&
+              Array.isArray(results[0].keyword_data.related_keywords)) {
+
+              console.log('Found nested keyword_data structure');
+
+              const keywordItems = results[0].keyword_data.related_keywords;
+              if (keywordItems && keywordItems.length > 0) {
+                // Map the nested keyword items to our RelatedKeyword interface
+                relatedKeywords = keywordItems
+                  .filter((item: unknown): item is KeywordResponseItem =>
+                    item !== null && typeof item === 'object' && 'keyword' in item)
+                  .map((item: KeywordResponseItem) => ({
+                    keyword: item.keyword,
+                    competition: item.competition || 'LOW',
+                    competition_index: item.competition_index || 0,
+                    search_volume: item.search_volume || 0,
+                    location_code: item.location_code || 0,
+                    language_code: item.language_code || null,
+                    search_partners: item.search_partners || false,
+                    low_top_of_page_bid: item.low_top_of_page_bid || null,
+                    high_top_of_page_bid: item.high_top_of_page_bid || null,
+                    cpc: item.cpc || null,
+                    monthly_searches: item.monthly_searches || []
+                  }))
+                  .slice(0, 10);
+              }
+            }
+            else {
+              console.warn('Unknown or unsupported API response structure:', results[0]);
+            }
+          } else {
+            console.warn('API returned empty results array');
+          }
+        }
+        // Try alternative path - the API might directly include keyword items
+        else if (Array.isArray(data.data.relatedKeywords)) {
+          console.log('Found keywords in direct array:', data.data.relatedKeywords.length);
+
+          relatedKeywords = data.data.relatedKeywords
+            .filter((item: unknown): item is KeywordResponseItem =>
+              item !== null && typeof item === 'object' && 'keyword' in item)
+            .map((item: KeywordResponseItem) => ({
+              keyword: item.keyword,
+              competition: item.competition || 'LOW',
+              competition_index: item.competition_index || 0,
+              search_volume: item.search_volume || 0,
+              location_code: item.location_code || 0,
+              language_code: item.language_code || null,
+              search_partners: item.search_partners || false,
+              low_top_of_page_bid: item.low_top_of_page_bid || null,
+              high_top_of_page_bid: item.high_top_of_page_bid || null,
+              cpc: item.cpc || null,
+              monthly_searches: item.monthly_searches || []
+            }))
+            .slice(0, 10);
+        }
+        else {
+          console.warn('No results found in API response');
+          console.log('Actual response structure:', JSON.stringify(data.data));
+        }
+
+        console.log(`Extracted ${relatedKeywords.length} related keywords:`,
+          relatedKeywords.map(k => k.keyword));
+
+        // Update the store with the processed data
+        set({
+          textSummary: data.data.summary.tasks[0].result[0],
+          analyzedText: data.data.summary.tasks[0].data.text,
+          contentSuggestions: {
+            analyzedKeywords: analyzedKeywords,
+            relatedKeywords: relatedKeywords,
+            isLoading: false
+          }
+        });
+      } else {
+        throw new Error(`API returned success: false - ${data.message || 'No error message provided'}`);
+      }
+    } catch (error) {
+      console.error('Error generating content suggestions:', error);
+      set({
+        contentSuggestions: {
+          ...get().contentSuggestions,
+          isLoading: false
+        },
+        error: error instanceof Error ? error.message : 'Failed to generate content suggestions. Please try again.'
+      });
+    }
+  },
+
+  analyzeKeyword: async (text: string, keyword: string) => {
+    if (!text || text.trim().length === 0) {
+      console.warn('No text to analyze');
+      return;
+    }
+
+    if (!keyword || keyword.trim().length === 0) {
+      console.warn('No keyword specified');
+      return;
+    }
+
+    set({
+      contentSuggestions: {
+        ...get().contentSuggestions,
+        isLoading: true
+      },
+      error: null
+    });
+
+    try {
+      // Call the content suggestions API with specific keyword
+      console.log(`Analyzing content for specific keyword: "${keyword}"`);
+      const response = await fetch(`${API_BASE_URL}/api/content/seo/keyword-analysis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          text,
+          keyword,
+          debug: true
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API error (${response.status}):`, errorText);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('Keyword Analysis Response:', data);
+
+      // Log debug info if available
+      if (data.debug) {
+        console.log('API Debug Info:', data.debug);
+      }
+
+      if (data.success) {
+        // Extract related keywords from the response
+        let relatedKeywords: RelatedKeyword[] = [];
+        const analyzedKeywords = [keyword, ...(data.data.analyzedKeywords || []).filter((k: string) => k !== keyword)];
+
+        // Process the data the same way as in generateContentSuggestions
+        if (Array.isArray(data.data.extractedKeywords) && data.data.extractedKeywords.length > 0) {
+          console.log('Using server-extracted keywords:', data.data.extractedKeywords.length);
+
+          relatedKeywords = data.data.extractedKeywords
+            .filter((item: unknown): item is KeywordResponseItem =>
+              item !== null && typeof item === 'object' && 'keyword' in item)
+            .map((item: KeywordResponseItem) => ({
+              keyword: item.keyword,
+              competition: item.competition || 'LOW',
+              competition_index: item.competition_index || 0,
+              search_volume: item.search_volume || 0,
+              location_code: item.location_code || 0,
+              language_code: item.language_code || null,
+              search_partners: item.search_partners || false,
+              low_top_of_page_bid: item.low_top_of_page_bid || null,
+              high_top_of_page_bid: item.high_top_of_page_bid || null,
+              cpc: item.cpc || null,
+              monthly_searches: item.monthly_searches || []
+            }))
+            .slice(0, 10);
+        }
+
+        // Update the store with the processed data
+        set({
+          textSummary: data.data.summary.tasks[0].result[0],
+          analyzedText: data.data.summary.tasks[0].data.text,
+          contentSuggestions: {
+            analyzedKeywords: analyzedKeywords,
+            relatedKeywords: relatedKeywords,
+            isLoading: false
+          }
+        });
+      } else {
+        throw new Error(`API returned success: false - ${data.message || 'No error message provided'}`);
+      }
+    } catch (error) {
+      console.error('Error analyzing keyword:', error);
+      set({
+        contentSuggestions: {
+          ...get().contentSuggestions,
+          isLoading: false
+        },
+        error: error instanceof Error ? error.message : 'Failed to analyze keyword. Please try again.'
+      });
+    }
+  },
+
+  clearTextSummary: () => {
+    set({
+      textSummary: null,
+      analyzedText: '',
+      contentSuggestions: {
+        analyzedKeywords: [],
+        relatedKeywords: [],
+        isLoading: false
+      }
+    });
   }
 }));
 

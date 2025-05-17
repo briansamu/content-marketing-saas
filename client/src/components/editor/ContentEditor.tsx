@@ -8,7 +8,7 @@ import Underline from '@tiptap/extension-underline';
 import { useEditorStore } from '../../store/useEditorStore';
 import { Card, CardContent, CardFooter, CardHeader } from '../ui/card';
 import { Input } from '../ui/input';
-import { AlertCircle, Save } from 'lucide-react';
+import { AlertCircle, Save, BarChart } from 'lucide-react';
 import EditorToolbar from './EditorToolbar';
 import { formatDateString, calculateReadingTime } from '../../lib/utils';
 import { Button } from '../ui/button';
@@ -84,8 +84,19 @@ const CustomLink = TiptapLink.extend({
   },
 });
 
-export function ContentEditor() {
-  const { currentDraft, isSaving, error, isDirty, updateContent, updateTitle, saveDraft } = useEditorStore();
+export function ContentEditor({ targetKeyword }: { targetKeyword?: string }) {
+  const {
+    currentDraft,
+    isSaving,
+    error,
+    isDirty,
+    isAnalyzing,
+    updateContent,
+    updateTitle,
+    saveDraft,
+    generateContentSuggestions,
+    analyzeKeyword
+  } = useEditorStore();
   const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
   const [editorHeight, setEditorHeight] = useState<string>('400px');
   const [isMobile, setIsMobile] = useState(false);
@@ -334,6 +345,28 @@ export function ContentEditor() {
     checkSpelling(true);
   };
 
+  // Function to generate text summary
+  const handleGenerateTextSummary = async () => {
+    if (!editor) return;
+
+    // Get plain text from editor
+    const text = editor.getText();
+
+    if (!text || text.trim().length === 0) {
+      console.warn('No text to analyze');
+      return;
+    }
+
+    // If a target keyword is provided, use keyword-specific analysis
+    if (targetKeyword && targetKeyword.trim()) {
+      console.log(`Using provided target keyword: "${targetKeyword}"`);
+      await analyzeKeyword(text, targetKeyword);
+    } else {
+      // Otherwise use general content suggestions
+      await generateContentSuggestions(text);
+    }
+  };
+
   return (
     <Card ref={cardRef} className="w-full xs:max-w-2xl 2xl:max-w-full mx-auto border shadow-sm gap-0">
       <CardHeader ref={headerRef} className="space-y-1 px-4 pb-2 gap-0">
@@ -357,6 +390,24 @@ export function ContentEditor() {
             onRemoveIgnoredError={removeFromIgnored}
             onClearAllIgnored={clearAllIgnored}
           />
+          <div className="flex justify-end mt-1">
+            <Button
+              onClick={handleGenerateTextSummary}
+              disabled={isAnalyzing || !editor?.getText().trim()}
+              size="sm"
+              variant="outline"
+              className="text-xs py-0 h-7 gap-1"
+            >
+              {isAnalyzing ? (
+                <>Analyzing...</>
+              ) : (
+                <>
+                  <BarChart size={14} />
+                  Analyze Text
+                </>
+              )}
+            </Button>
+          </div>
         </div>
         <div
           ref={editorContainerRef}
