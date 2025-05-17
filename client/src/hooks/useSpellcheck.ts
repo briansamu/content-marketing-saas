@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Editor } from '@tiptap/react';
+import { API_BASE_URL } from '../config';
 
 interface SpellcheckResult {
   offset: number;
@@ -39,7 +40,6 @@ export function useSpellcheck(editor: Editor | null) {
   const [lastCheckedContent, setLastCheckedContent] = useState<string>('');
   const [lastCheckedHash, setLastCheckedHash] = useState<string>('');
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
   // Add a ref to track if ignored errors list has changed since last check
   const ignoredErrorsRef = useRef<string>('');
@@ -124,16 +124,10 @@ export function useSpellcheck(editor: Editor | null) {
   // Load ignored errors from API
   const loadIgnoredErrors = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.warn('No authentication token found for loading ignored errors');
-        return;
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/content/spellcheck/ignored`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         credentials: 'include' // Include cookies for session authentication
       });
@@ -168,17 +162,10 @@ export function useSpellcheck(editor: Editor | null) {
   // Add an error to the ignored list
   const addToIgnored = useCallback(async (error: SpellcheckResult) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.warn('No authentication token found for adding ignored error');
-        return;
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/content/spellcheck/ignored`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         credentials: 'include', // Include cookies for session authentication
         body: JSON.stringify({
@@ -198,63 +185,31 @@ export function useSpellcheck(editor: Editor | null) {
           // Check if already exists to avoid duplicates
           const exists = prev.some(e => e.token === error.token && e.type === error.type);
           if (exists) return prev;
+
+          // Otherwise add to list
           return [...prev, data.ignoredError];
         });
 
-        // Remove this error from current errors
+        // Remove from current errors
         setErrors(prev => prev.filter(e => !(e.token === error.token && e.type === error.type)));
 
-        // Update all cached results to remove this error
-        try {
-          const cache = getCache();
-          let cacheUpdated = false;
-
-          // Go through all cache entries and remove this error
-          Object.entries(cache).forEach(([key, value]) => {
-            const originalErrorCount = value.errors.length;
-
-            // Filter out the newly ignored error from this cache entry
-            const updatedErrors = value.errors.filter(
-              e => !(e.token === error.token && e.type === error.type)
-            );
-
-            // Only update if we actually removed something
-            if (updatedErrors.length !== originalErrorCount) {
-              cache[key] = {
-                ...value,
-                errors: updatedErrors,
-                timestamp: Date.now() // Refresh timestamp
-              };
-              cacheUpdated = true;
-            }
-          });
-
-          if (cacheUpdated) {
-            saveCache(cache);
-            console.log('Updated all cached results after adding ignored error');
-          }
-        } catch (e) {
-          console.warn('Error updating cache after adding ignored error:', e);
-        }
+        console.log(`Added "${error.token}" to ignored ${error.type} errors`);
+        return true;
       }
+      return false;
     } catch (e) {
-      console.warn('Failed to add ignored error:', e);
+      console.error('Failed to add to ignored list:', e);
+      return false;
     }
   }, [API_BASE_URL]);
 
   // Remove an error from the ignored list
   const removeFromIgnored = useCallback(async (id: number) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.warn('No authentication token found for removing ignored error');
-        return;
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/content/spellcheck/ignored/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         credentials: 'include' // Include cookies for session authentication
       });
@@ -273,16 +228,10 @@ export function useSpellcheck(editor: Editor | null) {
   // Clear all ignored errors
   const clearAllIgnored = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.warn('No authentication token found for clearing ignored errors');
-        return;
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/content/spellcheck/ignored`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         credentials: 'include' // Include cookies for session authentication
       });
@@ -400,19 +349,12 @@ export function useSpellcheck(editor: Editor | null) {
     setIsChecking(true);
 
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.warn('No authentication token found for spellcheck');
-        return;
-      }
-
       console.log('Sending content for spellcheck:', plainText.substring(0, 100) + '...');
 
       const response = await fetch(`${API_BASE_URL}/api/content/spellcheck`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         credentials: 'include', // Include cookies for session authentication
         body: JSON.stringify({ text: content })
@@ -471,7 +413,7 @@ export function useSpellcheck(editor: Editor | null) {
   }, [API_BASE_URL, extractPlainText, hashText, lastCheckedHash, ignoredErrors, ignoredErrorsRef, getCache, cleanCache, saveCache, filterIgnoredErrors]);
 
   // Accept a suggestion from Sapling
-  const acceptSuggestion = useCallback(async (errorOffset: number, suggestion: string) => {
+  const acceptSuggestion = useCallback(async (errorOffset: number) => {
     // Find the error with this offset
     const error = errors.find(err => err.offset === errorOffset);
 
@@ -481,20 +423,10 @@ export function useSpellcheck(editor: Editor | null) {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.warn('No authentication token found for accepting suggestion');
-        return false;
-      }
-
-      // Log which suggestion was accepted (for debugging/analytics)
-      console.log(`Accepting suggestion "${suggestion}" for error "${error.token}"`);
-
       const response = await fetch(`${API_BASE_URL}/api/content/spellcheck/accept/${error.editId}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         credentials: 'include' // Include cookies for session authentication
       });
@@ -517,17 +449,10 @@ export function useSpellcheck(editor: Editor | null) {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.warn('No authentication token found for rejecting suggestion');
-        return false;
-      }
-
       const response = await fetch(`${API_BASE_URL}/api/content/spellcheck/reject/${error.editId}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         credentials: 'include' // Include cookies for session authentication
       });
@@ -737,7 +662,7 @@ export function useSpellcheck(editor: Editor | null) {
     }
 
     // Send accept feedback to the API
-    await acceptSuggestion(errorOffset, suggestion);
+    await acceptSuggestion(errorOffset);
 
     // Remove this error from our local list
     setErrors(prev => prev.filter(err => err.offset !== errorOffset));

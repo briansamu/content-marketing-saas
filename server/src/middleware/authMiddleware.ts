@@ -22,66 +22,57 @@ export interface AuthRequest extends Request {
   };
 }
 
-// Middleware to check if user is authenticated via session
+// Middleware to check if user is authenticated using session
 export const isAuthenticated = (req: AuthRequest, res: Response, next: NextFunction) => {
   if (req.isAuthenticated()) {
     return next();
   }
-
   return res.status(401).json({
     success: false,
-    message: 'Unauthorized access: not authenticated'
+    message: 'Unauthorized access: please login'
   });
 };
 
-// Middleware to authenticate JWT token (legacy support)
-export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) => {
-  passport.authenticate('jwt', { session: false }, (err, user, info) => {
-    if (err) {
-      return next(err);
-    }
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized access: invalid or expired token'
-      });
-    }
-
-    req.user = user;
-    return next();
-  })(req, res, next);
-};
-
-// Optional JWT authentication - doesn't error if no token
-export const optionalAuthJWT = (req: AuthRequest, res: Response, next: NextFunction) => {
-  passport.authenticate('jwt', { session: false }, (err, user) => {
-    if (user) {
-      req.user = user;
-    }
-    return next();
-  })(req, res, next);
-};
-
-// Check if user has admin privileges
-export const isAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
-  if (!req.user) {
-    res.status(401).json({
+// Check if user has admin role in their company
+export const isAdmin = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({
       success: false,
-      message: 'Unauthorized: authentication required'
+      message: 'Unauthorized access: please login'
     });
-    return;
   }
 
-  if (req.user.role !== 'admin') {
-    res.status(403).json({
-      success: false,
-      message: 'Forbidden: admin privileges required'
-    });
-    return;
+  const user = req.user;
+  if (user && user.role === 'admin') {
+    return next();
   }
 
-  next();
+  return res.status(403).json({
+    success: false,
+    message: 'Forbidden: admin access required'
+  });
+};
+
+// Middleware to check if user has access to requested company data
+export const hasCompanyAccess = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized access: please login'
+    });
+  }
+
+  const user = req.user;
+  const companyId = parseInt(req.params.company_id);
+
+  if (user && user.company_id === companyId) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    message: 'Forbidden: you do not have access to this company'
+  });
 };
 
 // Check if user belongs to specific company
@@ -208,9 +199,8 @@ export const hasBrandRole = (requiredRole: string | string[]) => {
 
 export default {
   isAuthenticated,
-  authenticateJWT,
-  optionalAuthJWT,
   isAdmin,
+  hasCompanyAccess,
   isCompanyMember,
   hasBrandAccess,
   hasBrandRole

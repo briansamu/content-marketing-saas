@@ -1,22 +1,16 @@
 import { Request, Response } from 'express';
 import passport from 'passport';
 import { User, Company } from '../models';
-import { generateToken } from '../config/auth';
 import sequelize from '../config/database';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { Op, QueryTypes } from 'sequelize';
 import logger from '../utils/logger';
+import { getGravatarUrl } from '../config/auth';
 
-// Helper function to get Gravatar URL
-const getGravatarUrl = (email: string): string => {
-  const hash = crypto.createHash('md5').update(email.toLowerCase().trim()).digest('hex');
-  return `https://www.gravatar.com/avatar/${hash}?d=mp&s=200`;
-};
-
-// Login with email/password
+// Login a user with email and password
 export const login = (req: Request, res: Response) => {
-  passport.authenticate('local', (err: Error, user: any, info: any) => {
+  passport.authenticate('local', (err, user, info) => {
     if (err) {
       return res.status(500).json({
         success: false,
@@ -32,24 +26,20 @@ export const login = (req: Request, res: Response) => {
       });
     }
 
-    // Log in the user with session
+    // Log the user in via session
     req.login(user, (loginErr) => {
       if (loginErr) {
         return res.status(500).json({
           success: false,
-          message: 'Session error',
+          message: 'Login error',
           error: loginErr.message
         });
       }
-
-      // Generate token for backwards compatibility
-      const token = generateToken(user);
 
       return res.status(200).json({
         success: true,
         message: 'Authentication successful',
         data: {
-          token, // Include token for backward compatibility
           user: user.toJSON()
         }
       });
@@ -218,14 +208,10 @@ export const register = async (req: Request, res: Response) => {
     // Commit the transaction
     await transaction.commit();
 
-    // Generate JWT token
-    const token = generateToken(user);
-
     return res.status(201).json({
       success: true,
       message: 'Registration successful',
       data: {
-        token,
         user: {
           ...user.toJSON(),
           company_id: companyId // Ensure company_id is returned in the response

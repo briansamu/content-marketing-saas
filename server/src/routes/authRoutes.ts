@@ -1,6 +1,6 @@
 import express from 'express';
 import authController from '../controllers/authController';
-import { authenticateJWT, isAuthenticated } from '../middleware/authMiddleware';
+import { isAuthenticated } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
@@ -16,14 +16,12 @@ const logout = authController.logout as unknown as express.RequestHandler;
 // Public auth routes
 router.post('/login', login);
 router.post('/register', register);
-router.get('/verify-email/:token', verifyEmail);
-router.post('/request-password-reset', requestPasswordReset);
+router.get('/verify-email', verifyEmail);
+router.post('/forgot-password', requestPasswordReset);
 router.post('/reset-password', resetPassword);
-
-// Protected auth routes - support both session and JWT authentication
-router.get('/me', isAuthenticated as express.RequestHandler, getCurrentUser);
 
 // Session-based routes
 router.post('/logout', isAuthenticated as express.RequestHandler, logout);
+router.get('/me', isAuthenticated as express.RequestHandler, getCurrentUser);
 
 export default router;

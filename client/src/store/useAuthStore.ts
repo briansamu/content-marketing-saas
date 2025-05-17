@@ -1,7 +1,5 @@
 import { create } from 'zustand';
-
-// API URL from environment variable with fallback
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+import { API_BASE_URL } from '../config.ts';
 
 export interface User {
   id: number;
@@ -67,11 +65,6 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
 
-      // Store token in localStorage for backward compatibility
-      if (data.data.token) {
-        localStorage.setItem('token', data.data.token);
-      }
-
       set({ isLoading: false });
 
       // Fetch current user data
@@ -87,36 +80,16 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true, error: null });
 
     try {
-      // First try with session
-      let response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
         credentials: 'include', // Include cookies for session
         headers: {
           'Content-Type': 'application/json'
         },
       });
 
-      // If session fails, try with token as fallback
-      if (!response.ok && response.status === 401) {
-        const token = localStorage.getItem('token');
-
-        if (token) {
-          response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-          });
-        }
-      }
-
       const data = await response.json();
 
       if (!response.ok) {
-        // If authentication fails, clear token
-        if (response.status === 401) {
-          localStorage.removeItem('token');
-        }
-
         set({
           isLoading: false,
           error: data.message || 'Failed to get user data',
@@ -190,27 +163,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       const formData = new FormData();
       formData.append('avatar', file);
 
-      // First try with session
-      let response = await fetch(`${API_BASE_URL}/api/users/avatar`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/avatar`, {
         method: 'POST',
         credentials: 'include', // Include cookies for session
         body: formData,
       });
-
-      // If session fails, try with token as fallback
-      if (!response.ok && response.status === 401) {
-        const token = localStorage.getItem('token');
-
-        if (token) {
-          response = await fetch(`${API_BASE_URL}/api/users/avatar`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-            body: formData,
-          });
-        }
-      }
 
       const data = await response.json();
 
@@ -239,9 +196,6 @@ export const useAuthStore = create<AuthState>((set) => ({
         credentials: 'include',
       });
 
-      // Clear local token
-      localStorage.removeItem('token');
-
       set({
         user: null,
         isAuthenticated: false,
@@ -250,7 +204,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
     } catch (error) {
       // Even if server logout fails, clear local state
-      localStorage.removeItem('token');
       set({
         user: null,
         isAuthenticated: false,
@@ -271,5 +224,5 @@ export const useAuthStore = create<AuthState>((set) => ({
   }
 }));
 
-// Initialize by loading user data if a token exists or session is active
+// Initialize by loading user data if session is active
 useAuthStore.getState().fetchCurrentUser(); 

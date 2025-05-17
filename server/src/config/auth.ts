@@ -1,17 +1,11 @@
-import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt';
 import { Strategy as LocalStrategy } from 'passport-local';
 import passport from 'passport';
 import dotenv from 'dotenv';
-import jwt from 'jsonwebtoken';
-import { User } from '../models';
 import bcrypt from 'bcrypt';
 import sequelize from '../config/database';
 import crypto from 'crypto';
 
 dotenv.config();
-
-const JWT_SECRET = process.env.JWT_SECRET || 'development_jwt_secret';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 // Helper function to get Gravatar URL
 const getGravatarUrl = (email: string): string => {
@@ -126,70 +120,4 @@ passport.use(new LocalStrategy(
   }
 ));
 
-// Configure JWT strategy for token authentication
-passport.use(new JwtStrategy(
-  {
-    jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-    secretOrKey: JWT_SECRET
-  },
-  async (payload, done) => {
-    try {
-      // Query the user directly from database to avoid model issues
-      const [rows]: any = await sequelize.query(
-        'SELECT * FROM users WHERE id = :id LIMIT 1',
-        {
-          replacements: { id: payload.id },
-          raw: true
-        }
-      );
-
-      const user = rows && rows.length > 0 ? rows[0] : null;
-
-      if (!user) {
-        return done(null, false);
-      }
-
-      if (user.status !== 'active') {
-        return done(null, false);
-      }
-
-      // Add avatar URL if not present
-      if (!user.avatar) {
-        user.avatar = getGravatarUrl(user.email);
-      }
-
-      // Create plain object with processed data
-      const processedUser = {
-        ...user,
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        company_id: user.company_id,
-        avatar: user.avatar || getGravatarUrl(user.email),
-        toJSON: () => {
-          const { password_hash, reset_token, reset_token_expires, verification_token, ...userWithoutSensitiveData } = user;
-          return userWithoutSensitiveData;
-        }
-      };
-
-      return done(null, processedUser);
-    } catch (error) {
-      return done(error, false);
-    }
-  }
-));
-
-// Generate JWT token
-const generateToken = (user: any): string => {
-  const payload = {
-    id: user.id,
-    email: user.email,
-    role: user.role,
-    company_id: user.company_id
-  };
-
-  // @ts-ignore - Type issue with jwt.sign
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-};
-
-export { passport, generateToken, JWT_SECRET };
+export { passport, getGravatarUrl };
