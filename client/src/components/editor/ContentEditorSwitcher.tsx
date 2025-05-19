@@ -1,4 +1,3 @@
-import React from 'react';
 import { useEditorStore } from '../../store/useEditorStore';
 import ArticleEditor from './types/ArticleEditor';
 import SocialEditor from './types/SocialEditor';

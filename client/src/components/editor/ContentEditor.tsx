@@ -1,4 +1,3 @@
-import React from 'react';
 import ContentEditorSwitcher from './ContentEditorSwitcher';
 
 export function ContentEditor({ targetKeyword }: { targetKeyword?: string }) {

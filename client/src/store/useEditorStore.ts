@@ -1090,16 +1090,51 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       console.log('Content Rewrite Suggestions Response:', data);
 
       if (data.success) {
+        // If suggestions is already an array of objects with the right structure, use it directly
+        let processedSuggestions = data.suggestions;
+
+        // If suggestions is a JSON string, try to parse it
+        if (typeof data.suggestions === 'string' && data.suggestions.trim().startsWith('[')) {
+          try {
+            const parsedSuggestions = JSON.parse(data.suggestions);
+            if (Array.isArray(parsedSuggestions)) {
+              processedSuggestions = parsedSuggestions;
+              console.log('Successfully parsed JSON string suggestions');
+            }
+          } catch (parseError) {
+            console.error('Error parsing suggestions JSON string:', parseError);
+            // Keep using original data.suggestions if parsing fails
+          }
+        }
+
+        // If rawSuggestions contains valid JSON, try to extract suggestions
+        if (typeof data.rawSuggestions === 'string' && data.suggestions.length === 0) {
+          try {
+            // Look for JSON array in the raw response
+            const jsonMatch = data.rawSuggestions.match(/\[\s*\{[\s\S]*\}\s*\]/);
+            if (jsonMatch) {
+              const extractedJson = JSON.parse(jsonMatch[0]);
+              if (Array.isArray(extractedJson) && extractedJson.length > 0) {
+                processedSuggestions = extractedJson;
+                console.log('Successfully extracted suggestions from raw response');
+              }
+            }
+          } catch (extractError) {
+            console.error('Error extracting suggestions from raw response:', extractError);
+            // Continue with original data if extraction fails
+          }
+        }
+
         set({
           contentRewrites: {
-            suggestions: data.suggestions,
+            suggestions: processedSuggestions,
             rawSuggestions: data.rawSuggestions,
             insights: data.insights,
             isLoading: false
           }
         });
 
-        console.log(`Received ${data.suggestions.length} rewrite suggestions`);
+        console.log(`Received ${processedSuggestions.length} rewrite suggestions`);
       } else {
         throw new Error(`API returned success: false - ${data.message || 'No error message provided'}`);
       }
@@ -1255,10 +1290,45 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         throw new Error(`API returned success: false - ${rewriteData.message || 'No error message provided'}`);
       }
 
+      // Process suggestions from rewriteData similar to suggestContentRewrites method
+      let processedSuggestions = rewriteData.suggestions;
+
+      // If suggestions is a JSON string, try to parse it
+      if (typeof rewriteData.suggestions === 'string' && rewriteData.suggestions.trim().startsWith('[')) {
+        try {
+          const parsedSuggestions = JSON.parse(rewriteData.suggestions);
+          if (Array.isArray(parsedSuggestions)) {
+            processedSuggestions = parsedSuggestions;
+            console.log('Successfully parsed JSON string suggestions in optimizeContent');
+          }
+        } catch (parseError) {
+          console.error('Error parsing suggestions JSON string in optimizeContent:', parseError);
+          // Keep using original rewriteData.suggestions if parsing fails
+        }
+      }
+
+      // If rawSuggestions contains valid JSON, try to extract suggestions
+      if (typeof rewriteData.rawSuggestions === 'string' && rewriteData.suggestions.length === 0) {
+        try {
+          // Look for JSON array in the raw response
+          const jsonMatch = rewriteData.rawSuggestions.match(/\[\s*\{[\s\S]*\}\s*\]/);
+          if (jsonMatch) {
+            const extractedJson = JSON.parse(jsonMatch[0]);
+            if (Array.isArray(extractedJson) && extractedJson.length > 0) {
+              processedSuggestions = extractedJson;
+              console.log('Successfully extracted suggestions from raw response in optimizeContent');
+            }
+          }
+        } catch (extractError) {
+          console.error('Error extracting suggestions from raw response in optimizeContent:', extractError);
+          // Continue with original data if extraction fails
+        }
+      }
+
       // Update the content rewrite results
       set({
         contentRewrites: {
-          suggestions: rewriteData.suggestions,
+          suggestions: processedSuggestions,
           rawSuggestions: rewriteData.rawSuggestions,
           insights: rewriteData.insights,
           isLoading: false
@@ -1315,72 +1385,58 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         let updatedContent = currentContent;
         let success = false;
 
-        // Helper function for fuzzy matching
-        const tryFuzzyMatching = (content: string, original: string, improved: string): string | false => {
-          try {
-            // Split content by paragraph or similar blocks
-            const paragraphElements = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote'];
-            const paragraphRegex = new RegExp(`<(${paragraphElements.join('|')})[^>]*>(.*?)<\\/\\1>`, 'gi');
-            const paragraphs = [...content.matchAll(paragraphRegex)];
+        // Helper function to strip HTML tags
+        const stripHtml = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
-            // Strip HTML from original for comparison
-            const stripHtml = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-            const plainOriginal = stripHtml(original);
+        // Get plain text versions for matching
+        const plainOriginal = stripHtml(original);
+        const plainImproved = stripHtml(improved);
 
-            // Fuzzy similarity function (using Levenshtein distance simplified)
-            const similarity = (a: string, b: string): number => {
-              const longer = a.length > b.length ? a : b;
-              const shorter = a.length > b.length ? b : a;
-
-              if (longer.length === 0) return 1.0;
-
-              // Simple check if one string contains the other
-              if (longer.includes(shorter)) return 0.8;
-
-              // Check if they share significant words
-              const longerWords = longer.toLowerCase().split(/\s+/);
-              const shorterWords = shorter.toLowerCase().split(/\s+/);
-              const commonWords = shorterWords.filter(w => longerWords.includes(w));
-
-              return commonWords.length / shorterWords.length;
-            };
-
-            // Try to find the most similar paragraph
-            let bestMatch: { fullMatch: string; tagName: string; innerContent: string } | null = null;
-            let bestScore = 0.6; // Threshold for considering a match
-            let replacedContent = content;
-
-            for (const paragraph of paragraphs) {
-              const fullMatch = paragraph[0];
-              const tagName = paragraph[1];
-              const innerText = paragraph[2];
-              const plainParagraph = stripHtml(innerText);
-
-              const score = similarity(plainParagraph, plainOriginal);
-
-              if (score > bestScore) {
-                bestScore = score;
-                bestMatch = { fullMatch, tagName, innerContent: innerText };
-              }
-            }
-
-            if (bestMatch) {
-              // Replace the content inside the matched tag while preserving the tag
-              const { fullMatch, tagName } = bestMatch;
-
-              // Extract the HTML structure from the original improved text if possible
-              const improvedContent = improved.replace(/<[^>]*>/g, '').trim();
-              const newHtml = `<${tagName}>${improvedContent}</${tagName}>`;
-
-              replacedContent = content.replace(fullMatch, newHtml);
-              return replacedContent;
-            }
-
-            return false;
-          } catch (error) {
-            console.error('Error in fuzzy matching:', error);
-            return false;
+        // Helper function for text similarity - defined at the top level so it can be used throughout
+        const getTextSimilarity = (text1: string, text2: string): number => {
+          // 1. Direct inclusion check
+          if (text1.includes(text2) || text2.includes(text1)) {
+            return 0.9;
           }
+
+          // 2. First words matching (useful for headings and intro sentences)
+          const words1 = text1.split(/\s+/);
+          const words2 = text2.split(/\s+/);
+
+          // Check if first 2-3 words match (when content is long enough)
+          if (words1.length >= 3 && words2.length >= 3) {
+            const firstThreeWords1 = words1.slice(0, 3).join(' ').toLowerCase();
+            const firstThreeWords2 = words2.slice(0, 3).join(' ').toLowerCase();
+
+            if (firstThreeWords1 === firstThreeWords2) {
+              return 0.85;
+            }
+          }
+
+          // 3. Key distinctive words matching
+          // Extract words longer than 4 chars (likely meaningful)
+          const meaningfulWords1 = words1.filter(w => w.length > 4).map(w => w.toLowerCase());
+          const meaningfulWords2 = words2.filter(w => w.length > 4).map(w => w.toLowerCase());
+
+          if (meaningfulWords1.length > 0 && meaningfulWords2.length > 0) {
+            // Count common words
+            const commonWords = meaningfulWords1.filter(w => meaningfulWords2.includes(w));
+            const matchRatio = commonWords.length / Math.min(meaningfulWords1.length, meaningfulWords2.length);
+
+            if (matchRatio > 0.5) {
+              return 0.7 + (matchRatio * 0.2); // Score between 0.7 and 0.9 based on match ratio
+            }
+          }
+
+          // 4. Sentence structure similarity (length and punctuation)
+          const sentenceStructure1 = text1.replace(/[a-zA-Z0-9]/g, 'x');
+          const sentenceStructure2 = text2.replace(/[a-zA-Z0-9]/g, 'x');
+
+          if (sentenceStructure1 === sentenceStructure2) {
+            return 0.6;
+          }
+
+          return 0;
         };
 
         // Log the full contents we're trying to replace for debugging
@@ -1389,298 +1445,131 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           improvedLength: improved.length,
           currentContentLength: currentContent.length,
           originalText: original.substring(0, 30) + '...',
-          improvedText: improved.substring(0, 30) + '...'
+          improvedText: improved.substring(0, 30) + '...',
+          plainOriginalLength: plainOriginal.length,
+          plainOriginalText: plainOriginal.substring(0, 30) + '...'
         });
 
-        // SPECIAL CASE: Check if this is an H1 heading suggestion
-        if (original.includes('<h1') || improved.includes('<h1') ||
-          /^(The|A|An)\s.{5,}/.test(original) || // Common title patterns
-          /^(Introduction|Overview|Getting Started)/i.test(original)) {
-          console.log('Detected potential H1 heading, using specialized handling');
+        // DETECT HTML TAG DIFFERENCES: Check if Anthropic changed the HTML tags
+        const extractTagInfo = (html: string) => {
+          const tagMatches = html.match(/<([a-z0-9]+)[^>]*>/gi) || [];
+          return tagMatches.map(tag => tag.match(/<([a-z0-9]+)/i)?.[1] || '').filter(Boolean);
+        };
 
-          // Find ALL H1 tags in the document
-          const h1Regex = /<h1[^>]*>(.*?)<\/h1>/gi;
-          const h1Tags = [...currentContent.matchAll(h1Regex)];
+        const originalTags = extractTagInfo(original);
+        const improvedTags = extractTagInfo(improved);
 
-          if (h1Tags.length > 0) {
-            console.log(`Found ${h1Tags.length} H1 tags in document`);
+        // If tags are different between original and improved, handle specially
+        const hasDifferentTags = originalTags.length > 0 &&
+          improvedTags.length > 0 &&
+          JSON.stringify(originalTags) !== JSON.stringify(improvedTags);
 
-            // Extract plain text from original
-            const getPlainText = (html: string) => html.replace(/<[^>]*>/g, '').trim();
-            const originalPlainText = getPlainText(original);
+        if (hasDifferentTags) {
+          console.log('Detected HTML tag differences between original and improved versions:', {
+            originalTags,
+            improvedTags
+          });
 
-            // Try to match each H1 by plain text similarity
-            for (const h1Match of h1Tags) {
-              const fullH1Tag = h1Match[0];
-              const h1Content = h1Match[1];
-              const h1PlainText = getPlainText(h1Content);
-
-              // Check plain text similarity with various methods
-              const isMatch =
-                h1PlainText.includes(originalPlainText) ||
-                originalPlainText.includes(h1PlainText) ||
-                // Check word overlap
-                originalPlainText.split(' ').some(word =>
-                  word.length > 4 && h1PlainText.includes(word)) ||
-                h1PlainText.toLowerCase().includes(originalPlainText.toLowerCase().substring(0, 15));
-
-              if (isMatch) {
-                console.log('Found matching H1:', {
-                  h1: h1PlainText,
-                  original: originalPlainText
-                });
-
-                // Preserve H1 tag attributes
-                const openingTagMatch = fullH1Tag.match(/<h1[^>]*>/i);
-                const openingTag = openingTagMatch ? openingTagMatch[0] : '<h1>';
-
-                // Extract improved content and build new H1
-                const improvedContent = getPlainText(improved);
-                const newH1 = `${openingTag}${improvedContent}</h1>`;
-
-                // Replace the H1 tag
-                updatedContent = currentContent.replace(fullH1Tag, newH1);
-                success = true;
-                console.log('Successfully replaced H1 with specialized handling');
-                break;
-              }
-            }
-          }
+          // For now, we'll proceed with plain text replacement in these cases
+          // and preserve the original HTML structure
         }
 
-        // SPECIAL CASE: <p> to <h2> transformation
-        if (!success && original.includes('<h2>') && improved.includes('<h2>')) {
-          // Extract the plain text from heading tags
-          const originalText = original.replace(/<[^>]*>/g, '').trim();
-          const improvedText = improved.replace(/<[^>]*>/g, '').trim();
+        // GENERIC CONTENT BLOCK MATCHING - works with any type of content
+        if (!success) {
+          console.log('Trying generic content block matching');
 
-          // Look for this text in paragraphs, especially with a <br> after it
-          const paragraphRegex = new RegExp(`<p[^>]*>\\s*(${originalText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\s*(<br[^>]*>|<br\\s*/>)`, 'i');
-          const paragraphMatch = currentContent.match(paragraphRegex);
+          // Find all block elements that could contain our content
+          const blockElements = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote', 'section', 'article'];
+          const blockRegex = new RegExp(`<(${blockElements.join('|')})[^>]*>(.*?)<\\/\\1>`, 'gi');
+          const blocks = [...currentContent.matchAll(blockRegex)];
 
-          if (paragraphMatch) {
-            console.log('Found heading text in paragraph with br:', paragraphMatch[0]);
+          // Find the best matching block
+          let bestMatch = null;
+          let bestScore = 0.6; // Threshold for considering a match
 
-            // Find the full paragraph
-            const paragraphStartIndex = currentContent.lastIndexOf('<p', paragraphMatch.index || 0);
-            const paragraphEndIndex = currentContent.indexOf('</p>', paragraphMatch.index || 0) + 4;
+          for (const block of blocks) {
+            const fullMatch = block[0];
+            const tagName = block[1];
+            const content = block[2];
+            const plainContent = stripHtml(content);
 
-            if (paragraphStartIndex >= 0 && paragraphEndIndex > paragraphStartIndex) {
-              const fullParagraph = currentContent.substring(paragraphStartIndex, paragraphEndIndex);
-
-              // Split the paragraph at the <br> tag
-              const brIndex = fullParagraph.indexOf('<br', fullParagraph.indexOf(originalText));
-
-              if (brIndex > 0) {
-                // Extract content before and after the <br>
-                const beforeBr = fullParagraph.substring(0, brIndex);
-                const afterBr = fullParagraph.substring(brIndex);
-
-                // Replace the original heading text with empty string in the "before" part
-                const cleanedBeforeBr = beforeBr.replace(originalText, '').replace(/<p[^>]*>\s*/, '').trim();
-
-                // Create new content with h2 and modified paragraph
-                const newContent =
-                  `<h2>${improvedText}</h2>` +
-                  (cleanedBeforeBr || afterBr ? `<p>${cleanedBeforeBr ? cleanedBeforeBr + ' ' : ''}${afterBr.replace(/<br[^>]*>|<br\s*\/>\s*/, '')}` : '');
-
-                // Replace the entire paragraph with our new structure
-                updatedContent = currentContent.replace(fullParagraph, newContent);
-                success = true;
-                console.log('Transformed paragraph text into h2 heading');
-              } else {
-                // If there's no <br>, check if the heading text is at the beginning of the paragraph
-                const paragraphContent = fullParagraph.replace(/<p[^>]*>|<\/p>/g, '').trim();
-
-                if (paragraphContent.startsWith(originalText)) {
-                  // Replace the full paragraph with h2 + new paragraph
-                  const remainingContent = paragraphContent.substring(originalText.length).trim();
-                  const newContent =
-                    `<h2>${improvedText}</h2>` +
-                    (remainingContent ? `<p>${remainingContent}</p>` : '');
-
-                  updatedContent = currentContent.replace(fullParagraph, newContent);
-                  success = true;
-                  console.log('Transformed paragraph text into h2 heading (no br)');
-                }
-              }
+            // Skip very short blocks or blocks with dramatically different lengths
+            if (plainContent.length < 5 ||
+              plainContent.length < plainOriginal.length * 0.5 ||
+              plainContent.length > plainOriginal.length * 2) {
+              continue;
             }
-          } else {
-            // Try simpler matching without <br>
-            const simpleParagraphRegex = new RegExp(`<p[^>]*>\\s*(${originalText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'i');
-            const simpleMatch = currentContent.match(simpleParagraphRegex);
 
-            if (simpleMatch) {
-              console.log('Found heading text at start of paragraph:', simpleMatch[0]);
+            const similarity = getTextSimilarity(plainContent, plainOriginal);
 
-              // Find full paragraph 
-              const paragraphStartIndex = currentContent.lastIndexOf('<p', simpleMatch.index || 0);
-              const paragraphEndIndex = currentContent.indexOf('</p>', simpleMatch.index || 0) + 4;
-
-              if (paragraphStartIndex >= 0 && paragraphEndIndex > paragraphStartIndex) {
-                const fullParagraph = currentContent.substring(paragraphStartIndex, paragraphEndIndex);
-                // Extract paragraph content without tags
-                const paragraphContent = fullParagraph.replace(/<p[^>]*>|<\/p>/g, '').trim();
-
-                // Create a regex to find the heading text followed by remaining content
-                const contentRegex = new RegExp(`^\\s*(${originalText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\s*(.*)$`, 's');
-                const contentMatch = paragraphContent.match(contentRegex);
-
-                if (contentMatch) {
-                  const remainingContent = contentMatch[2].trim();
-                  // Create new content with h2 and modified paragraph
-                  const newContent =
-                    `<h2>${improvedText}</h2>` +
-                    (remainingContent ? `<p>${remainingContent}</p>` : '');
-
-                  updatedContent = currentContent.replace(fullParagraph, newContent);
-                  success = true;
-                  console.log('Transformed paragraph text into h2 heading (simple match)');
-                }
-              }
-            }
-          }
-        }
-
-        // 1. Try exact match if specialized handling didn't work
-        if (!success && currentContent.includes(original)) {
-          updatedContent = currentContent.replace(original, improved);
-          success = true;
-          console.log('Applied suggestion with exact match');
-        }
-        // 2. Try with heading tag patterns
-        else if (!success && (original.includes('The Art and Science') || original.includes('Introduction') ||
-          /^<h[1-6][^>]*>.*<\/h[1-6]>$/i.test(original.trim()))) {
-          // Special handling for heading tags which often have different formatting
-          const headingRegex = /<h([1-6])[^>]*>(.*?)<\/h\1>/gi;
-          const originalTextMatch = original.match(/>(.*?)</);
-          const originalHeadingText = originalTextMatch ? originalTextMatch[1] : original.replace(/<[^>]*>/g, '').trim();
-
-          console.log('Looking for heading with text:', originalHeadingText);
-
-          // SPECIAL CASE: Handle when heading text appears in a paragraph
-          // Extract the plain text from the improved suggestion
-          const improvedMatch = improved.match(/>(.*?)</);
-          const improvedHeadingText = improvedMatch ? improvedMatch[1] : improved.replace(/<[^>]*>/g, '').trim();
-
-          // Look for the heading text in paragraph tags
-          const paragraphWithHeadingRegex = new RegExp(`<p[^>]*>\\s*(${originalHeadingText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'i');
-          const paragraphMatch = currentContent.match(paragraphWithHeadingRegex);
-
-          if (paragraphMatch) {
-            console.log('Found heading text in paragraph:', paragraphMatch[0]);
-
-            // Find the entire paragraph
-            const paragraphStart = currentContent.lastIndexOf('<p', paragraphMatch.index || 0);
-            if (paragraphStart >= 0) {
-              // Find the matching closing tag or <br> that might follow the heading text
-              const closingTagIndex = currentContent.indexOf('</p>', paragraphMatch.index || 0);
-              const brTagIndex = currentContent.indexOf('<br', paragraphMatch.index || 0);
-
-              // Determine if there's a <br> before the paragraph ends
-              const hasBrAfterHeading = brTagIndex > 0 && brTagIndex < closingTagIndex;
-
-              if (hasBrAfterHeading) {
-                // If there's a <br>, only replace the text before the <br>
-                const textBeforeBr = currentContent.substring(paragraphStart, brTagIndex);
-                const updatedText = textBeforeBr.replace(originalHeadingText, improvedHeadingText);
-                updatedContent = currentContent.replace(textBeforeBr, updatedText);
-                success = true;
-                console.log('Replaced heading text before <br> tag');
-              } else if (closingTagIndex > 0) {
-                // Replace within the full paragraph
-                const fullParagraph = currentContent.substring(paragraphStart, closingTagIndex + 4);
-                const updatedParagraph = fullParagraph.replace(originalHeadingText, improvedHeadingText);
-                updatedContent = currentContent.replace(fullParagraph, updatedParagraph);
-                success = true;
-                console.log('Replaced heading text in full paragraph');
-              }
+            if (similarity > bestScore) {
+              bestScore = similarity;
+              bestMatch = { fullMatch, tagName, content, similarity };
             }
           }
 
-          // If heading wasn't found in a paragraph, continue with normal heading detection
-          if (!success) {
-            // Create a pattern that finds headings containing the core text
-            const headingMatches = [...currentContent.matchAll(headingRegex)];
+          if (bestMatch) {
+            console.log(`Found matching content block with ${bestMatch.similarity.toFixed(2)} similarity:`,
+              bestMatch.fullMatch.substring(0, 50) + '...');
 
-            // Also check for TipTap-specific heading formats
-            const tiptapHeadingRegex = /<[^>]*?data-type=['"]heading['"][^>]*?>(.*?)<\/[^>]*?>/gi;
-            const tiptapHeadingMatches = [...currentContent.matchAll(tiptapHeadingRegex)];
+            // Create replacement preserving the tag structure
+            const tagStart = bestMatch.fullMatch.substring(0, bestMatch.fullMatch.indexOf('>') + 1);
+            const tagEnd = `</${bestMatch.tagName}>`;
 
-            // Combine all heading matches
-            const allHeadingMatches = [...headingMatches, ...tiptapHeadingMatches];
+            // Use the improved text for the replacement, but handle potential tag differences
+            // If the improved text already contains appropriate HTML tags, use those
+            let replacementContent;
 
-            // If no standard or TipTap headings found, try plain text match
-            if (allHeadingMatches.length === 0) {
-              // Try to find by plain text
-              const plainTextPattern = new RegExp(`>(\\s*${originalHeadingText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*)<`, 'i');
-              const plainTextMatch = currentContent.match(plainTextPattern);
+            if (hasDifferentTags && improved.trim().startsWith('<') && improved.trim().endsWith('>')) {
+              // Extract just the inner content from improved text if it has its own tags
+              const innerImproved = improved.replace(/<[^>]*>/g, '').trim();
+              replacementContent = `${tagStart}${innerImproved}${tagEnd}`;
+            } else {
+              // Otherwise use the plain text
+              replacementContent = `${tagStart}${plainImproved}${tagEnd}`;
+            }
 
-              if (plainTextMatch) {
-                console.log('Found heading by plain text search:', plainTextMatch[0]);
-                // Find the surrounding element
-                const startPos = currentContent.lastIndexOf('<', plainTextMatch.index || 0);
-                const endPos = currentContent.indexOf('>', (plainTextMatch.index || 0) + plainTextMatch[0].length) + 1;
+            updatedContent = currentContent.replace(bestMatch.fullMatch, replacementContent);
+            success = true;
+          }
+        }
 
-                if (startPos >= 0 && endPos > startPos) {
-                  const surroundingElement = currentContent.substring(startPos, endPos);
-                  const tagMatch = surroundingElement.match(/<([a-z0-9]+)[^>]*>/i);
+        // SENTENCE FRAGMENT MATCHING - for cases where the text spans across multiple elements
+        if (!success && plainOriginal.length > 15) {
+          console.log('Trying sentence fragment matching');
 
-                  if (tagMatch) {
-                    const tagName = tagMatch[1];
-                    const fullElement = currentContent.substring(
-                      startPos,
-                      currentContent.indexOf(`</${tagName}>`, plainTextMatch.index) + tagName.length + 3
-                    );
+          // Extract a unique fragment from the original (at least 15 chars)
+          const fragments = plainOriginal.split(/[.!?]+/);
 
-                    // Create a new heading with the improved text
-                    const improvedHeadingText = improved.replace(/<[^>]*>/g, '').trim();
-                    const newElement = fullElement.replace(originalHeadingText, improvedHeadingText);
+          for (const fragment of fragments) {
+            if (fragment.trim().length >= 15) {
+              const cleanFragment = fragment.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-                    updatedContent = currentContent.replace(fullElement, newElement);
-                    success = true;
+              // Look for this fragment in the HTML content
+              const fragmentRegex = new RegExp(`([^>]*${cleanFragment}[^<]*)`, 'i');
+              const fragmentMatch = currentContent.match(fragmentRegex);
+
+              if (fragmentMatch) {
+                console.log('Found matching sentence fragment:', fragmentMatch[0].substring(0, 30) + '...');
+
+                // Carefully replace just this fragment
+                const matchedText = fragmentMatch[0];
+
+                // Find corresponding fragment in the improved text
+                const improvedFragments = plainImproved.split(/[.!?]+/);
+                let bestImprovedFragment = '';
+                let bestFragmentSimilarity = 0;
+
+                for (const improvedFragment of improvedFragments) {
+                  const similarity = getTextSimilarity(fragment, improvedFragment.trim());
+                  if (similarity > bestFragmentSimilarity) {
+                    bestFragmentSimilarity = similarity;
+                    bestImprovedFragment = improvedFragment.trim();
                   }
                 }
-              }
-            }
 
-            // Try to find a matching heading if not found by plain text
-            if (!success) {
-              for (const match of allHeadingMatches) {
-                const headingText = match[2] || match[1]; // Different group indices for standard vs TipTap
-                const fullHeadingTag = match[0];
-
-                // Different heading matching strategies
-                const matches =
-                  headingText.includes(originalHeadingText) ||
-                  originalHeadingText.includes(headingText) ||
-                  // Check word-by-word similarity for more fuzzy matching
-                  headingText.split(/\s+/).some(word =>
-                    word.length > 4 && originalHeadingText.includes(word)) ||
-                  // Case insensitive match
-                  headingText.toLowerCase().includes(originalHeadingText.toLowerCase());
-
-                if (matches) {
-                  // Found a matching heading, now replace it
-                  console.log('Found matching heading:', {
-                    originalHeading: fullHeadingTag,
-                    originalHeadingText: originalHeadingText,
-                    matchedHeadingText: headingText
-                  });
-
-                  // Preserve any attributes in the original tag
-                  const openingTagMatch = fullHeadingTag.match(/<[^>]*>/i);
-                  const closingTagMatch = fullHeadingTag.match(/<\/[^>]*>/i);
-
-                  const openingTag = openingTagMatch ? openingTagMatch[0] : `<h2>`;
-                  const closingTag = closingTagMatch ? closingTagMatch[0] : `</h2>`;
-
-                  // Create the new heading with preserved tag structure
-                  const newHeadingContent = improved.replace(/<[^>]*>/g, '').trim();
-                  const newFullHeading = `${openingTag}${newHeadingContent}${closingTag}`;
-
-                  console.log('Creating new heading:', newFullHeading);
-                  updatedContent = currentContent.replace(fullHeadingTag, newFullHeading);
+                if (bestImprovedFragment) {
+                  updatedContent = currentContent.replace(matchedText, bestImprovedFragment);
                   success = true;
                   break;
                 }
@@ -1689,10 +1578,121 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           }
         }
 
-        // 3. Try with stripped HTML
-        else {
+        // CONTENT WITH DIFFERENT TAG STRUCTURE
+        // For cases where Anthropic completely changed the HTML structure
+        if (!success && hasDifferentTags) {
+          console.log('Attempting replacement with different tag structures');
+
+          // Try to find elements that contain similar plain text
+          const plainTextPattern = new RegExp(`>(\\s*${plainOriginal.substring(0, 30).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^<]*)`, 'i');
+          const plainTextMatch = currentContent.match(plainTextPattern);
+
+          if (plainTextMatch) {
+            console.log('Found matching plain text within tags:', plainTextMatch[0]);
+
+            // Find the surrounding element
+            const startPos = currentContent.lastIndexOf('<', plainTextMatch.index || 0);
+            const endPos = currentContent.indexOf('>', (plainTextMatch.index || 0) + plainTextMatch[0].length) + 1;
+
+            if (startPos >= 0 && endPos > startPos) {
+              // Find the full element including its closing tag
+              const surroundingElement = currentContent.substring(startPos, endPos);
+              const tagMatch = surroundingElement.match(/<([a-z0-9]+)[^>]*>/i);
+
+              if (tagMatch) {
+                const tagName = tagMatch[1];
+                const closeTagPos = currentContent.indexOf(`</${tagName}>`, plainTextMatch.index || 0);
+
+                if (closeTagPos > 0) {
+                  const fullElement = currentContent.substring(
+                    startPos,
+                    closeTagPos + tagName.length + 3
+                  );
+
+                  // Replace the inner content but preserve the original tag structure
+                  const openTag = fullElement.substring(0, fullElement.indexOf('>') + 1);
+                  const closingTag = `</${tagName}>`;
+                  const newElement = `${openTag}${plainImproved}${closingTag}`;
+
+                  updatedContent = currentContent.replace(fullElement, newElement);
+                  success = true;
+                }
+              }
+            }
+          }
+        }
+
+        // 1. Try exact match if our advanced matching didn't work
+        if (!success && currentContent.includes(original)) {
+          updatedContent = currentContent.replace(original, improved);
+          success = true;
+          console.log('Applied suggestion with exact match');
+        }
+        // 2. Try with heading tag patterns - keep this for backward compatibility
+        else if (!success && (original.includes('<h1') || improved.includes('<h1') ||
+          /^<h[1-6][^>]*>.*<\/h[1-6]>$/i.test(original.trim()))) {
+
+          // Special handling for heading tags which often have different formatting
+          const headingRegex = /<h([1-6])[^>]*>(.*?)<\/h\1>/gi;
+          const originalTextMatch = original.match(/>(.*?)</);
+          const originalHeadingText = originalTextMatch ? originalTextMatch[1] : stripHtml(original);
+
+          console.log('Looking for heading with text:', originalHeadingText);
+
+          // Create a pattern that finds headings containing the core text
+          const headingMatches = [...currentContent.matchAll(headingRegex)];
+
+          // Also check for TipTap-specific heading formats
+          const tiptapHeadingRegex = /<[^>]*?data-type=['"]heading['"][^>]*?>(.*?)<\/[^>]*?>/gi;
+          const tiptapHeadingMatches = [...currentContent.matchAll(tiptapHeadingRegex)];
+
+          // Combine all heading matches
+          const allHeadingMatches = [...headingMatches, ...tiptapHeadingMatches];
+
+          for (const match of allHeadingMatches) {
+            const headingText = match[2] || match[1]; // Different group indices for standard vs TipTap
+            const fullHeadingTag = match[0];
+
+            // Different heading matching strategies
+            const matches =
+              headingText.includes(originalHeadingText) ||
+              originalHeadingText.includes(headingText) ||
+              // Check word-by-word similarity for more fuzzy matching
+              headingText.split(/\s+/).some(word =>
+                word.length > 4 && originalHeadingText.includes(word)) ||
+              // Case insensitive match
+              headingText.toLowerCase().includes(originalHeadingText.toLowerCase());
+
+            if (matches) {
+              // Found a matching heading, now replace it
+              console.log('Found matching heading:', {
+                originalHeading: fullHeadingTag,
+                originalHeadingText: originalHeadingText,
+                matchedHeadingText: headingText
+              });
+
+              // Preserve any attributes in the original tag
+              const openingTagMatch = fullHeadingTag.match(/<[^>]*>/i);
+              const closingTagMatch = fullHeadingTag.match(/<\/[^>]*>/i);
+
+              const openingTag = openingTagMatch ? openingTagMatch[0] : `<h2>`;
+              const closingTag = closingTagMatch ? closingTagMatch[0] : `</h2>`;
+
+              // Create the new heading with preserved tag structure
+              const newHeadingContent = stripHtml(improved);
+              const newFullHeading = `${openingTag}${newHeadingContent}${closingTag}`;
+
+              console.log('Creating new heading:', newFullHeading);
+              updatedContent = currentContent.replace(fullHeadingTag, newFullHeading);
+              success = true;
+              break;
+            }
+          }
+        }
+        // 3. Try with stripped HTML for generic content
+        else if (!success) {
           // Escape special regex characters in the original text
-          const escapedOriginal = original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const escapedOriginal = plainOriginal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
           // Create a regex that can match the text with or without surrounding HTML tags
           // This handles cases where text might be split across multiple nodes
@@ -1702,84 +1702,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           );
 
           // Replace the text while preserving HTML structure
-          const tempContent = currentContent.replace(originalRegex, improved);
+          const tempContent = currentContent.replace(originalRegex, plainImproved);
 
           // Check if replacement actually happened
           if (tempContent !== currentContent) {
             updatedContent = tempContent;
             success = true;
             console.log('Applied suggestion with regex match');
-          } else {
-            // 4. Try with stripped inner HTML as last resort
-            // Remove HTML tags from both strings for comparison
-            const stripHtml = (html: string) => html.replace(/<[^>]*>/g, '');
-            const plainOriginal = stripHtml(original);
-            const plainContent = stripHtml(currentContent);
-            const escapedPlainOriginal = plainOriginal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-            // Find the text position in the stripped content
-            const plainRegex = new RegExp(`(${escapedPlainOriginal})`, 'gi');
-            const matches = [...plainContent.matchAll(plainRegex)];
-
-            if (matches.length > 0) {
-              // For each match, try to find the corresponding position in the HTML content
-              for (const match of matches) {
-                const startPos = match.index;
-                const endPos = startPos + match[0].length;
-
-                // Find the substring in the original HTML that contains this text
-                let plainPos = 0;
-                let htmlStartPos = 0;
-                let htmlEndPos = 0;
-
-                // Scan through the HTML to find the position
-                for (let i = 0; i < currentContent.length; i++) {
-                  if (currentContent[i] === '<') {
-                    // Skip until the closing '>'
-                    while (i < currentContent.length && currentContent[i] !== '>') i++;
-                  } else {
-                    if (plainPos === startPos) htmlStartPos = i;
-                    if (plainPos === endPos) {
-                      htmlEndPos = i;
-                      break;
-                    }
-                    plainPos++;
-                  }
-                }
-
-                if (htmlStartPos < htmlEndPos) {
-                  const replacedContent = currentContent.substring(0, htmlStartPos) +
-                    improved +
-                    currentContent.substring(htmlEndPos);
-                  updatedContent = replacedContent;
-                  success = true;
-                  console.log('Applied suggestion with HTML position match');
-                  break;
-                }
-              }
-            }
-
-            // 5. FALLBACK: Advanced fuzzy matching when all other methods fail
-            if (!success) {
-              console.log('All standard methods failed, trying fuzzy matching as fallback');
-
-              // Try paragraph-level fuzzy matching
-              const fuzzyResult = tryFuzzyMatching(currentContent, original, improved);
-              if (fuzzyResult !== false) {
-                console.log('Applied suggestion using fuzzy matching');
-                updatedContent = fuzzyResult;
-                success = true;
-              } else {
-                // 6. FINAL FALLBACK: Chunk-based replacement strategy
-                console.log('Trying chunk-based replacement as final fallback');
-                const chunkResult = tryChunkReplacement(currentContent, original, improved);
-                if (chunkResult !== false) {
-                  console.log('Applied suggestion using chunk-based replacement');
-                  updatedContent = chunkResult;
-                  success = true;
-                }
-              }
-            }
           }
         }
 
@@ -1791,113 +1720,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           return state;
         }
 
-        // Post-processing: Check for duplicate phrases that might have been introduced
-        try {
-          const stripHtml = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-
-          // Extract the improved text without HTML
-          const improvedPlainText = stripHtml(improved);
-
-          // Skip short phrases or if no replacement happened
-          if (improvedPlainText.length > 15 && success) {
-            // SAFER APPROACH: Only look for exact duplicates in the same paragraph
-            const paragraphs = updatedContent.match(/<p[^>]*>.*?<\/p>/gs) || [];
-            for (const paragraph of paragraphs) {
-              // Extract plain text content of paragraph
-              const paragraphText = paragraph.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-
-              // Only process paragraphs with substantial content
-              if (paragraphText.length > 50) {
-                // Extract text content from HTML without DOM
-                const innerText = paragraph.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-
-                // Find sentences of 5+ words that appear twice in the paragraph
-                const sentenceRegex = /[^.!?]+[.!?]+/g;
-                const sentenceMatches = [...innerText.matchAll(sentenceRegex)];
-
-                for (const sentenceMatch of sentenceMatches) {
-                  const sentence = sentenceMatch[0].trim();
-
-                  // Only check substantial sentences (5+ words)
-                  if (sentence.split(/\s+/).length >= 5) {
-                    // Count occurrences of this sentence in the paragraph
-                    const sentenceCount = (innerText.match(new RegExp(
-                      sentence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'
-                    )) || []).length;
-
-                    // If sentence appears multiple times in same paragraph
-                    if (sentenceCount > 1) {
-                      console.log('Found duplicate in paragraph:', sentence.substring(0, 40) + '...');
-                      // Just remove the second instance of this exact sentence
-                      const cleanedParagraph = paragraph.replace(
-                        new RegExp(
-                          `(${sentence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(.*?)(${sentence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`,
-                          'i'
-                        ),
-                        '$1$2' // Keep first instance and content between, remove second instance
-                      );
-                      // Only update if we didn't remove too much content
-                      const cleanedLength = cleanedParagraph.length;
-                      const originalLength = paragraph.length;
-
-                      if (cleanedLength > originalLength * 0.7) { // Ensure we didn't remove more than 30% of content
-                        updatedContent = updatedContent.replace(paragraph, cleanedParagraph);
-                        console.log('Safely removed duplicate sentence');
-                      } else {
-                        console.log('Skipped removal - would remove too much content');
-                      }
-                    }
-                  }
-                }
-              }
-            }
-
-            // Split the improved text into meaningful chunks (8+ words)
-            const improvedWords = improvedPlainText.split(/\s+/);
-
-            if (improvedWords.length >= 8) {
-              // Create chunks of 8 words that might repeat
-              for (let i = 0; i <= improvedWords.length - 8; i++) {
-                const chunk = improvedWords.slice(i, i + 8).join(' ');
-
-                // Look for this chunk appearing twice in close proximity
-                const chunkEscaped = chunk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const duplicateRegex = new RegExp(`(${chunkEscaped}[^<]{0,50}){2,}`, 'i');
-                const duplicateMatch = updatedContent.match(duplicateRegex);
-
-                if (duplicateMatch) {
-                  console.log('Found duplicate content:', chunk);
-
-                  // Find the surrounding paragraph
-                  let startPos = updatedContent.lastIndexOf('<p', duplicateMatch.index || 0);
-                  if (startPos < 0) startPos = updatedContent.lastIndexOf('<div', duplicateMatch.index || 0);
-
-                  if (startPos >= 0) {
-                    const endPos = updatedContent.indexOf('</p>', duplicateMatch.index || 0);
-                    if (endPos > startPos) {
-                      const paragraphWithDuplicates = updatedContent.substring(startPos, endPos + 4);
-
-                      // Create a regex to match the second occurrence
-                      const secondInstanceRegex = new RegExp(`(${chunkEscaped})([^<]{0,50}${chunkEscaped})`, 'i');
-                      const cleanedParagraph = paragraphWithDuplicates.replace(secondInstanceRegex, '$1');
-
-                      // Replace the paragraph with the cleaned version
-                      updatedContent = updatedContent.replace(paragraphWithDuplicates, cleanedParagraph);
-                      console.log('Removed duplicate content');
-                    }
-                  }
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error in duplicate detection:', error);
-          // Continue with the update even if deduplication fails
-        }
-
         // Update word count and content
         const text = updatedContent.replace(/<[^>]*>/g, ' ');
         const words = text.split(/\s+/).filter(word => word.length > 0);
+
+        // Save to localStorage for persistence across refreshes
+        saveCurrentDraftToStorage({
+          ...state.currentDraft,
+          content: updatedContent,
+          wordCount: words.length
+        });
 
         return {
           currentDraft: {
@@ -2171,17 +2003,17 @@ const tryChunkReplacement = (content: string, original: string, improved: string
 
           // Extract the tag structure to preserve attributes
           const openingTagMatch = match[0].match(/<[^>]*>/);
-          const closingTagMatch = match[0].match(/<\/[^>]*>$/);
+          const closingTagMatch = match[0].match(/<\/[^>]*>/);
 
           const openingTag = openingTagMatch ? openingTagMatch[0] : `<h${headingLevel}>`;
           const closingTag = closingTagMatch ? closingTagMatch[0] : `</h${headingLevel}>`;
 
           // Create the improved heading with preserved tag structure
-          const improvedText = stripHtml(improved);
-          const replacementHeading = `${openingTag}${improvedText}${closingTag}`;
+          const newHeadingContent = stripHtml(improved);
+          const newFullHeading = `${openingTag}${newHeadingContent}${closingTag}`;
 
           // Replace just this heading
-          return content.replace(match[0], replacementHeading);
+          return content.replace(match[0], newFullHeading);
         }
       }
     }

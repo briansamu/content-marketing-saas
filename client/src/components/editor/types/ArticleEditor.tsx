@@ -109,6 +109,7 @@ export function ArticleEditor({ targetKeyword }: { targetKeyword?: string }) {
     analyzeKeyword,
     optimizeContent,
     clearContentRewrites,
+    applyRewriteSuggestion,
   } = useEditorStore();
   const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
   const [editorHeight, setEditorHeight] = useState<string>('400px');
@@ -518,14 +519,19 @@ export function ArticleEditor({ targetKeyword }: { targetKeyword?: string }) {
                         <div className="bg-muted/30 p-2 rounded-md mb-2 text-sm">{suggestion.original}</div>
                         <div className="mb-1 text-muted-foreground text-xs">Suggestion:</div>
                         <div className="bg-primary/10 p-2 rounded-md text-sm font-medium">{suggestion.improved}</div>
+                        {suggestion.explanation && (
+                          <>
+                            <div className="mb-1 mt-2 text-muted-foreground text-xs">Why this helps:</div>
+                            <div className="text-sm text-muted-foreground italic">{suggestion.explanation}</div>
+                          </>
+                        )}
                         <Button
                           className="mt-2"
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            // Here you would apply the suggestion
+                            applyRewriteSuggestion(suggestion.original, suggestion.improved);
                             console.log(`Applied suggestion ${index}`);
-                            // Then close the dialog or leave it open for more changes
                           }}
                         >
                           Apply This Change
