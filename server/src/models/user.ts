@@ -77,7 +77,10 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   }
 
   // Generate Gravatar URL for user
-  static getGravatarUrl(email: string): string {
+  static getGravatarUrl(email: string | undefined): string {
+    if (!email) {
+      return 'https://www.gravatar.com/avatar/default?d=mp&s=200';
+    }
     const hash = crypto.createHash('md5').update(email.toLowerCase().trim()).digest('hex');
     return `https://www.gravatar.com/avatar/${hash}?d=mp&s=200`;
   }
@@ -173,7 +176,11 @@ User.init({
     allowNull: true,
     get() {
       const rawValue = this.getDataValue('avatar');
-      return rawValue || User.getGravatarUrl(this.email);
+      if (rawValue) {
+        return rawValue;
+      }
+      const email = this.getDataValue('email');
+      return User.getGravatarUrl(email);
     }
   },
   created_at: {

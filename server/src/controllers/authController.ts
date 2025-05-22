@@ -89,6 +89,30 @@ export const register = async (req: Request, res: Response) => {
       });
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format'
+      });
+    }
+
+    // Validate string fields have appropriate lengths
+    if (
+      first_name.length > 50 ||
+      last_name.length > 50 ||
+      company_name.length > 100 ||
+      email.length > 100
+    ) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Input exceeds maximum length'
+      });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({
       where: { email },
@@ -130,20 +154,18 @@ export const register = async (req: Request, res: Response) => {
     if (!company.id) {
       logger.error('Company ID is undefined or null!');
 
-      // Try to retrieve the ID directly from the database
+      // Try to retrieve the ID directly from the database using Sequelize model rather than raw SQL
       try {
-        const [result] = await sequelize.query(
-          'SELECT id FROM companies WHERE name = ? ORDER BY created_at DESC LIMIT 1',
-          {
-            replacements: [company_name],
-            type: QueryTypes.SELECT,
-            transaction
-          }
-        );
+        const latestCompany = await Company.findOne({
+          where: { name: company_name },
+          order: [['created_at', 'DESC']],
+          limit: 1,
+          transaction
+        });
 
-        if (result && (result as any).id) {
-          logger.info('Retrieved company ID directly from database:', (result as any).id);
-          companyValues.id = (result as any).id;
+        if (latestCompany && latestCompany.id) {
+          logger.info('Retrieved company ID from database:', latestCompany.id);
+          companyValues.id = latestCompany.id;
         } else {
           await transaction.rollback();
           return res.status(500).json({
@@ -191,18 +213,11 @@ export const register = async (req: Request, res: Response) => {
       company_id: user.company_id
     });
 
-    // If company_id is still not set, manually update it
+    // If company_id is still not set, manually update it using Sequelize model update
     if (!user.company_id) {
       logger.warn('User created without company_id, manually updating...');
-      // Force direct database update to ensure it's set
-      await sequelize.query(
-        'UPDATE users SET company_id = ? WHERE id = ?',
-        {
-          replacements: [companyId, user.id],
-          type: QueryTypes.UPDATE,
-          transaction
-        }
-      );
+
+      await user.update({ company_id: companyId }, { transaction });
     }
 
     // Commit the transaction
@@ -236,6 +251,14 @@ export const register = async (req: Request, res: Response) => {
 export const verifyEmail = async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
+
+    // Validate token format
+    if (typeof token !== 'string' || token.length !== 64) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid token format'
+      });
+    }
 
     const user = await User.findOne({
       where: { verification_token: token }
@@ -273,6 +296,15 @@ export const verifyEmail = async (req: Request, res: Response) => {
 export const requestPasswordReset = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format'
+      });
+    }
 
     const user = await User.findOne({ where: { email } });
     if (!user) {
@@ -314,6 +346,21 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
 export const resetPassword = async (req: Request, res: Response) => {
   try {
     const { token, password } = req.body;
+
+    // Validate token and password
+    if (typeof token !== 'string' || token.length !== 64) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid token format'
+      });
+    }
+
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters'
+      });
+    }
 
     const user = await User.findOne({
       where: {
@@ -366,16 +413,21 @@ export const getCurrentUser = async (req: Request, res: Response) => {
       });
     }
 
-    // Get user from database directly to avoid model issues
-    const [rows]: any = await sequelize.query(
-      'SELECT * FROM users WHERE id = :id LIMIT 1',
-      {
-        replacements: { id: user.id },
-        raw: true
-      }
-    );
+    // Validate user ID 
+    if (!user.id || isNaN(Number(user.id))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID'
+      });
+    }
 
-    const userData = rows && rows.length > 0 ? rows[0] : null;
+    // Use Sequelize model instead of raw SQL
+    const userData = await User.findByPk(user.id, {
+      attributes: {
+        exclude: ['password_hash', 'reset_token', 'reset_token_expires', 'verification_token']
+      },
+      raw: true
+    });
 
     if (!userData) {
       return res.status(404).json({
@@ -386,26 +438,14 @@ export const getCurrentUser = async (req: Request, res: Response) => {
 
     // Add Gravatar if no avatar is set
     if (!userData.avatar) {
-      userData.avatar = getGravatarUrl(userData.email);
+      userData.avatar = getGravatarUrl(userData.email || undefined);
     }
-
-    // Remove sensitive data
-    delete userData.password_hash;
-    delete userData.reset_token;
-    delete userData.reset_token_expires;
-    delete userData.verification_token;
 
     // Get company data if available
     let company = null;
     if (userData.company_id) {
-      const [companyRows]: any = await sequelize.query(
-        'SELECT * FROM companies WHERE id = :id LIMIT 1',
-        {
-          replacements: { id: userData.company_id },
-          raw: true
-        }
-      );
-      company = companyRows && companyRows.length > 0 ? companyRows[0] : null;
+      // Use Sequelize model instead of raw SQL
+      company = await Company.findByPk(userData.company_id, { raw: true }) as any;
     }
 
     return res.status(200).json({
