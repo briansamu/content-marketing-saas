@@ -4,7 +4,7 @@ import { useEditorStore } from '../../store/useEditorStore';
 import ContentEditor from '../../components/editor/ContentEditor';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Plus, FileText, Loader2, Save, ArrowRightCircleIcon, Trash, Cloud, Database, BarChart, BarChart2, AlertTriangle, Check, Lightbulb, Hash, TrendingUp, Type, MessageSquare, Video } from 'lucide-react';
+import { Plus, FileText, Loader2, Save, ArrowRightCircleIcon, Trash, Cloud, Database, BarChart, BarChart2, AlertTriangle, Check, Lightbulb, Hash, TrendingUp, Type, MessageSquare, Video, Info } from 'lucide-react';
 import { formatDateString, truncateString } from '../../lib/utils';
 import { Breadcrumb, BreadcrumbLink } from "../../components/ui/breadcrumb";
 import { BreadcrumbSeparator } from "../../components/ui/breadcrumb";
@@ -57,7 +57,6 @@ export function ContentHubPage() {
     isSaving,
     isDirty,
     textSummary,
-    analyzedText,
     contentSuggestions,
     loadDrafts,
     newDraft,
@@ -65,7 +64,6 @@ export function ContentHubPage() {
     saveDraft,
     deleteDraft,
     clearTextSummary,
-    analyzeKeyword,
     updateTitle,
     updateContent,
     setContentType,
@@ -218,29 +216,6 @@ export function ContentHubPage() {
           </Tooltip>
         );
     }
-  };
-
-  const handleKeywordAnalysis = (keyword: string) => {
-    if (!keyword.trim() || !textSummary) return;
-
-    // If we have analyzed text from a previous analysis, use that,
-    // otherwise use the current draft content
-    const contentToAnalyze = analyzedText ||
-      (currentDraft?.content && stripHtmlTags(currentDraft.content)) || '';
-
-    if (!contentToAnalyze.trim()) {
-      console.warn('No content to analyze');
-      return;
-    }
-
-    // Call the analyzer with the specific keyword
-    console.log(`Analyzing content for keyword: "${keyword}"`);
-    analyzeKeyword(contentToAnalyze, keyword);
-  };
-
-  // Helper function to remove HTML tags from editor content
-  const stripHtmlTags = (html: string) => {
-    return html.replace(/<[^>]*>/g, ' ').trim();
   };
 
   // Helper to get content type icon
@@ -631,25 +606,24 @@ export function ContentHubPage() {
                   <div className="flex flex-col gap-1 mb-4">
                     <h3 className="text-sm font-medium flex items-center gap-1.5">
                       <Lightbulb size={16} className="text-primary" />
-                      Target Keyword
+                      Target Keyword(s)
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info size={16} className="text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Enter one or more target keywords separated by commas.
+                        </TooltipContent>
+                      </Tooltip>
                     </h3>
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        placeholder="Enter target keyword..."
+                        placeholder="Enter one or more keywords separated by commas..."
                         className="px-2 py-1 text-sm border border-input rounded-md flex-1"
                         value={keywordTarget}
                         onChange={(e) => setKeywordTarget(e.target.value)}
                       />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs whitespace-nowrap"
-                        disabled={!keywordTarget.trim() || contentSuggestions.isLoading}
-                        onClick={() => handleKeywordAnalysis(keywordTarget.trim())}
-                      >
-                        Analyze Keyword
-                      </Button>
                     </div>
                   </div>
 
