@@ -66,9 +66,10 @@ export function RegisterForm({
     try {
       // Prepare data for the API in the required format
       const registerData = {
-        name: `${formData.first_name} ${formData.last_name}`, // Create name field as required by the API
         email: formData.email,
         password: formData.password,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
         company_name: formData.company_name,
       };
 
