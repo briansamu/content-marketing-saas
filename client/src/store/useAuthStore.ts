@@ -17,9 +17,10 @@ export interface User {
 }
 
 interface RegisterCredentials {
-  name: string;
   email: string;
   password: string;
+  first_name: string;
+  last_name: string;
   company_name?: string;
 }
 
@@ -71,7 +72,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const { fetchCurrentUser } = useAuthStore.getState();
       await fetchCurrentUser();
 
-    } catch (error) {
+    } catch {
       set({ isLoading: false, error: 'Network error. Please try again.' });
     }
   },
@@ -118,7 +119,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false
       });
 
-    } catch (error) {
+    } catch {
       set({
         isLoading: false,
         error: 'Network error. Please try again.',
@@ -151,7 +152,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isLoading: false });
       // Registration successful, but user still needs to login
 
-    } catch (error) {
+    } catch {
       set({ isLoading: false, error: 'Network error. Please try again.' });
     }
   },
@@ -181,7 +182,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         user: state.user ? { ...state.user, avatar: data.avatarUrl } : null
       }));
 
-    } catch (error) {
+    } catch {
       set({ isLoading: false, error: 'Network error. Please try again.' });
     }
   },
@@ -202,7 +203,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         error: null,
         isLoading: false
       });
-    } catch (error) {
+    } catch {
       // Even if server logout fails, clear local state
       set({
         user: null,
