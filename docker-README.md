@@ -5,6 +5,7 @@ This project uses Docker Compose to set up a development environment with the fo
 - Server (Node.js/Express application)
 - PostgreSQL database
 - Redis for caching and session management
+- pgAdmin for database management
 
 ## Prerequisites
 
@@ -26,9 +27,10 @@ docker-compose up
 
 This will start all services defined in the `docker-compose.yml` file:
 - Client app: http://localhost:3000
-- Server API: http://localhost:5000
+- Server API: http://localhost:8080
 - PostgreSQL: localhost:5432 (credentials in docker-compose.yml)
 - Redis: localhost:6379
+- pgAdmin: http://localhost:5050
 
 3. To run in detached mode:
 ```bash
@@ -51,6 +53,7 @@ docker-compose up
 Database data is stored in Docker volumes:
 - `postgres_data`: PostgreSQL data
 - `redis_data`: Redis data
+- `pgadmin_data`: pgAdmin data
 
 These volumes persist even when containers are stopped or removed.
 
@@ -62,6 +65,20 @@ The Docker Compose setup uses environment variables defined in the `docker-compo
 
 Connect to PostgreSQL using any DB client with these credentials:
 - Host: localhost
+- Port: 5432
+- Username: postgres
+- Password: postgres
+- Database: content_marketing
+
+## Accessing pgAdmin
+
+pgAdmin is available at http://localhost:5050 with these credentials:
+- Email: admin@example.com
+- Password: admin
+
+After logging in, you'll need to add a new server connection:
+- Name: Local PostgreSQL
+- Host: postgres
 - Port: 5432
 - Username: postgres
 - Password: postgres
